@@ -1,9 +1,9 @@
-export const storeConfig = {
+﻿export const storeConfig = {
   name: "Chapati and Melfouf",
-  tagline: "???? ??????? ???????? ?? ?????? - ???? ????!",
+  tagline: "أطيب الشباتي والملفوف في العلمة - اطلب الآن!",
   whatsappNumber: "213558447723",
-  address: "??????? ????? ???????",
-  hours: "?? ??? ?? 11:00 ??? 23:00",
+  address: "العلمة، سطيف، الجزائر",
+  hours: "كل يوم من 11:00 إلى 23:00",
   deliveryFee: 150,
 };
 
@@ -19,45 +19,45 @@ export const themes = {
 };
 
 const specialOptions = [
-  { id: "cheese", name: "????", price: 50 },
-  { id: "comopair", name: "???????", price: 100 },
-  { id: "extra-scalope", name: "????? ??????", price: 50 },
-  { id: "extra-kebda", name: "????? ????", price: 50 },
+  { id: "cheese", name: "شيزي", price: 50 },
+  { id: "comopair", name: "كوموبير", price: 100 },
+  { id: "extra-scalope", name: "زيادة سكالوب", price: 50 },
+  { id: "extra-kebda", name: "زيادة كبدة", price: 50 },
 ];
 
 export const menuGroups = [
   {
     id: "chapati-normal",
-    title: "??????? ??????",
+    title: "الشباتي العادي",
     items: [
       {
         id: "chapati-scalope",
-        name: "????? ??????",
-        desc: "????? ?????? ?? ?????? ?????",
+        name: "شباتي سكالوب",
+        desc: "شباتي سكالوب مع اختيار الصوص",
         price: 200,
         theme: "violet",
         image: "/chapati-/images/01-chapati-scalope.webp",
       },
       {
         id: "chapati-kebda",
-        name: "????? ????",
-        desc: "????? ???? ?? ?????? ?????",
+        name: "شباتي كبدة",
+        desc: "شباتي كبدة مع اختيار الصوص",
         price: 200,
         theme: "ember",
         image: "/chapati-/images/02-chapati-kebda.webp",
       },
       {
         id: "chapati-mix",
-        name: "????? ????",
-        desc: "????? ???? ?? ?????? ?????",
+        name: "شباتي ميكس",
+        desc: "شباتي ميكس مع اختيار الصوص",
         price: 200,
         theme: "charcoal",
         image: "/chapati-/images/03-chapati-mix.webp",
       },
       {
         id: "chapati-simple-scalope",
-        name: "????? ????? ??????",
-        desc: "????? ????? ??????",
+        name: "شباتي سامبل سكالوب",
+        desc: "شباتي سامبل سكالوب",
         price: 150,
         theme: "olive",
         image: "/chapati-/images/04-chapati-simple-scalope.webp",
@@ -67,12 +67,12 @@ export const menuGroups = [
 
   {
     id: "chapati-special",
-    title: "??????? ?????????",
+    title: "الشباتي السبيسيال",
     items: [
       {
         id: "special-scalope",
-        name: "????? ??????? ??????",
-        desc: "????? ??????? ?? ?????? ????????",
+        name: "شباتي سبيسيال سكالوب",
+        desc: "شباتي سبيسيال مع اختيار الإضافات",
         price: 200,
         theme: "violet",
         image: "/chapati-/images/05-chapati-special-scalope.webp",
@@ -80,8 +80,8 @@ export const menuGroups = [
       },
       {
         id: "special-kebda",
-        name: "????? ??????? ????",
-        desc: "????? ??????? ?? ?????? ????????",
+        name: "شباتي سبيسيال كبدة",
+        desc: "شباتي سبيسيال مع اختيار الإضافات",
         price: 200,
         theme: "ember",
         image: "/chapati-/images/06-chapati-special-kebda.webp",
@@ -89,8 +89,8 @@ export const menuGroups = [
       },
       {
         id: "special-mix",
-        name: "????? ??????? ????",
-        desc: "????? ??????? ?? ?????? ????????",
+        name: "شباتي سبيسيال ميكس",
+        desc: "شباتي سبيسيال مع اختيار الإضافات",
         price: 200,
         theme: "crimson",
         image: "/chapati-/images/07-chapati-special-mix.webp",
@@ -101,12 +101,12 @@ export const menuGroups = [
 
   {
     id: "malfouf",
-    title: "???????",
+    title: "الملفوف",
     items: [
       {
         id: "malfouf-scalope",
-        name: "????? ??????",
-        desc: "????? ?? ?????? ??????? ????????",
+        name: "ملفوف سكالوب",
+        desc: "ملفوف مع سكالوب واختيار الإضافات",
         price: 200,
         theme: "olive",
         image: "/chapati-/images/08-malfouf-scalope.webp",
@@ -114,8 +114,8 @@ export const menuGroups = [
       },
       {
         id: "malfouf-kebda",
-        name: "????? ????",
-        desc: "????? ?? ???? ??????? ????????",
+        name: "ملفوف كبدة",
+        desc: "ملفوف مع كبدة واختيار الإضافات",
         price: 200,
         theme: "ember",
         image: "/chapati-/images/09-malfouf-kebda.webp",
@@ -123,8 +123,8 @@ export const menuGroups = [
       },
       {
         id: "malfouf-mix",
-        name: "????? ????",
-        desc: "????? ???? ??????? ????????",
+        name: "ملفوف ميكس",
+        desc: "ملفوف ميكس واختيار الإضافات",
         price: 200,
         theme: "crimson",
         image: "/chapati-/images/10-malfouf-mix.webp",
@@ -132,8 +132,8 @@ export const menuGroups = [
       },
       {
         id: "malfouf-special-scalope",
-        name: "????? ??????? ??????",
-        desc: "????? ??????? ?? ?????? ????????",
+        name: "ملفوف سبيسيال سكالوب",
+        desc: "ملفوف سبيسيال مع اختيار الإضافات",
         price: 200,
         theme: "violet",
         image: "/chapati-/images/11-malfouf-special-scalope.webp",
@@ -141,8 +141,8 @@ export const menuGroups = [
       },
       {
         id: "malfouf-special-kebda",
-        name: "????? ??????? ????",
-        desc: "????? ??????? ?? ?????? ????????",
+        name: "ملفوف سبيسيال كبدة",
+        desc: "ملفوف سبيسيال مع اختيار الإضافات",
         price: 200,
         theme: "ember",
         image: "/chapati-/images/12-malfouf-special-kebda.webp",
@@ -150,8 +150,8 @@ export const menuGroups = [
       },
       {
         id: "malfouf-special-mix",
-        name: "????? ??????? ????",
-        desc: "????? ??????? ???? ?? ?????? ????????",
+        name: "ملفوف سبيسيال ميكس",
+        desc: "ملفوف سبيسيال ميكس مع اختيار الإضافات",
         price: 200,
         theme: "crimson",
         image: "/chapati-/images/13-malfouf-special-mix.webp",
@@ -162,12 +162,12 @@ export const menuGroups = [
 
   {
     id: "drinks",
-    title: "?????????",
+    title: "المشروبات",
     items: [
       {
         id: "coca-cola-large",
         name: "Coca-Cola",
-        desc: "????",
+        desc: "كبير",
         price: 130,
         theme: "crimson",
         image: "/chapati-/images/14-coca-cola.webp",
@@ -175,7 +175,7 @@ export const menuGroups = [
       {
         id: "pepsi-large",
         name: "Pepsi",
-        desc: "????",
+        desc: "كبير",
         price: 100,
         theme: "violet",
         image: "/chapati-/images/15-pepsi.jpg",
@@ -183,7 +183,7 @@ export const menuGroups = [
       {
         id: "mirinda-large",
         name: "Mirinda",
-        desc: "????",
+        desc: "كبير",
         price: 100,
         theme: "ember",
         image: "/chapati-/images/16-mirinda.webp",
@@ -191,7 +191,7 @@ export const menuGroups = [
       {
         id: "hamoud-large",
         name: "Hamoud",
-        desc: "????",
+        desc: "كبير",
         price: 100,
         theme: "olive",
         image: "/chapati-/images/17-hamoud.webp",
@@ -199,7 +199,7 @@ export const menuGroups = [
       {
         id: "schweppes-large",
         name: "Schweppes",
-        desc: "????",
+        desc: "كبير",
         price: 1500,
         theme: "charcoal",
         image: "/chapati-/images/18-schweppes.webp",
@@ -207,7 +207,7 @@ export const menuGroups = [
       {
         id: "ifri-large",
         name: "Ifri Juice",
-        desc: "????",
+        desc: "كبير",
         price: 150,
         theme: "olive",
         image: "/chapati-/images/19-ifri.webp",
@@ -215,15 +215,15 @@ export const menuGroups = [
       {
         id: "bona-large",
         name: "Bona",
-        desc: "????",
+        desc: "كبير",
         price: 100,
         theme: "ember",
         image: "/chapati-/images/20-bona.webp",
       },
       {
         id: "water-large",
-        name: "???",
-        desc: "????",
+        name: "ماء",
+        desc: "كبير",
         price: 400,
         theme: "violet",
         image: "/chapati-/images/21-water.webp",
@@ -287,7 +287,7 @@ export const menuGroups = [
       },
       {
         id: "water-mini",
-        name: "???",
+        name: "ماء",
         desc: "Mini",
         price: 25,
         theme: "violet",
@@ -298,14 +298,14 @@ export const menuGroups = [
 ];
 
 export const sauces = [
-  { id: "spicy", name: "???? ????", price: 0 },
-  { id: "mayonnaise", name: "???????", price: 0 },
+  { id: "spicy", name: "صلصة حارة", price: 0 },
+  { id: "mayonnaise", name: "مايوناز", price: 0 },
 ];
 
 export const deliveryZones = [
-  "??????",
-  "????",
-  "???? ????",
-  "??? ?????",
-  "??????",
+  "العلمة",
+  "قجال",
+  "بازر سكرة",
+  "بئر العرش",
+  "الزرقة",
 ];
