@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { storeConfig, menuGroups, heroImage, themes } from "./config.js";
+import { storeConfig, menuGroups, heroImage, themes, sauces } from "./config.js";
 import "./App.css";
 
 function waLink(text) {
@@ -52,6 +52,268 @@ function StoryCard({ item, onAdd }) {
         أضف إلى السلة
       </button>
     </article>
+  );
+}
+
+
+function ProductOptionsModal({ item, onClose, onConfirm }) {
+  const isChapatiSpecial = item.customization === "chapati-special";
+  const isMalfoufSpecial = item.customization === "malfouf-special";
+  const isSpecial = isChapatiSpecial || isMalfoufSpecial;
+
+  const defaultType = item.type || "??????";
+
+  const [type, setType] = useState(defaultType);
+  const [specialChoice, setSpecialChoice] = useState(
+    isChapatiSpecial ? "cheese" : "cheese"
+  );
+  const [sauce, setSauce] = useState("with-sauce");
+  const [extraScalop, setExtraScalop] = useState(false);
+  const [extraKebda, setExtraKebda] = useState(false);
+
+  const basePrice = isChapatiSpecial ? 250 : isMalfoufSpecial ? 300 : item.price;
+
+  let unitPrice = basePrice;
+
+  if (isSpecial && specialChoice === "comopair") {
+    unitPrice = isChapatiSpecial ? 300 : 350;
+  }
+
+  if (isChapatiSpecial) {
+    if (extraScalop) unitPrice += 50;
+    if (extraKebda) unitPrice += 50;
+  }
+
+  const selectedOptions = [];
+
+  if (isSpecial) {
+    selectedOptions.push({
+      id: "type",
+      name: `?????: ${type}`,
+      price: 0,
+    });
+
+    selectedOptions.push({
+      id: specialChoice,
+      name: specialChoice === "cheese" ? "????" : "???????",
+      price: specialChoice === "cheese" ? 0 : isChapatiSpecial ? 50 : 50,
+    });
+
+    if (isChapatiSpecial && extraScalop) {
+      selectedOptions.push({
+        id: "extra-scalope",
+        name: "????? ??????",
+        price: 50,
+      });
+    }
+
+    if (isChapatiSpecial && extraKebda) {
+      selectedOptions.push({
+        id: "extra-kebda",
+        name: "????? ????",
+        price: 50,
+      });
+    }
+  }
+
+  const selectedSauce =
+    sauces.find((option) => option.id === sauce) || sauces[0];
+
+  selectedOptions.push({
+    id: selectedSauce.id,
+    name: selectedSauce.name,
+    price: 0,
+  });
+
+  function handleConfirm() {
+    onConfirm({
+      ...item,
+      type,
+      options: selectedOptions,
+      unitPrice,
+      quantity: 1,
+      cartId: `${item.id}-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`,
+    });
+  }
+
+  return (
+    <div
+      className="product-options-backdrop"
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        className="product-options-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`???????? ${item.name}`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="product-options__header">
+          <div>
+            <h2>{item.name}</h2>
+            <p>???? ???????? ???? ??????</p>
+          </div>
+
+          <button
+            type="button"
+            className="cart-modal__close"
+            onClick={onClose}
+            aria-label="????? ??????????"
+          >
+            ?
+          </button>
+        </div>
+
+        {isSpecial && (
+          <>
+            <div className="product-options__section">
+              <h3>?????? ?????</h3>
+
+              <div className="product-options__choices">
+                {["??????", "????", "????"].map((option) => (
+                  <label
+                    className={`product-option ${
+                      type === option ? "product-option--selected" : ""
+                    }`}
+                    key={option}
+                  >
+                    <input
+                      type="radio"
+                      name="product-type"
+                      value={option}
+                      checked={type === option}
+                      onChange={() => setType(option)}
+                    />
+                    <span>{option}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="product-options__section">
+              <h3>?????? ?????????</h3>
+
+              <div className="product-options__choices">
+                <label
+                  className={`product-option ${
+                    specialChoice === "cheese"
+                      ? "product-option--selected"
+                      : ""
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="special-choice"
+                    value="cheese"
+                    checked={specialChoice === "cheese"}
+                    onChange={() => setSpecialChoice("cheese")}
+                  />
+                  <span>
+                    ???? ? {formatPrice(isChapatiSpecial ? 250 : 300)}
+                  </span>
+                </label>
+
+                <label
+                  className={`product-option ${
+                    specialChoice === "comopair"
+                      ? "product-option--selected"
+                      : ""
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="special-choice"
+                    value="comopair"
+                    checked={specialChoice === "comopair"}
+                    onChange={() => setSpecialChoice("comopair")}
+                  />
+                  <span>
+                    ??????? ? {formatPrice(isChapatiSpecial ? 300 : 350)}
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {isChapatiSpecial && (
+              <div className="product-options__section">
+                <h3>?????? ?????</h3>
+
+                <div className="product-options__choices">
+                  <label
+                    className={`product-option ${
+                      extraScalop ? "product-option--selected" : ""
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={extraScalop}
+                      onChange={(event) =>
+                        setExtraScalop(event.target.checked)
+                      }
+                    />
+                    <span>????? ?????? +50 ??</span>
+                  </label>
+
+                  <label
+                    className={`product-option ${
+                      extraKebda ? "product-option--selected" : ""
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={extraKebda}
+                      onChange={(event) =>
+                        setExtraKebda(event.target.checked)
+                      }
+                    />
+                    <span>????? ???? +50 ??</span>
+                  </label>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="product-options__section">
+          <h3>?????</h3>
+
+          <div className="product-options__choices">
+            {sauces.map((option) => (
+              <label
+                className={`product-option ${
+                  sauce === option.id ? "product-option--selected" : ""
+                }`}
+                key={option.id}
+              >
+                <input
+                  type="radio"
+                  name="product-sauce"
+                  value={option.id}
+                  checked={sauce === option.id}
+                  onChange={() => setSauce(option.id)}
+                />
+                <span>{option.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="product-options__footer">
+          <strong>{formatPrice(unitPrice)}</strong>
+
+          <button
+            type="button"
+            className="product-options__confirm"
+            onClick={handleConfirm}
+          >
+            ??? ??? ?????
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -207,21 +469,34 @@ function CartModal({
 export default function App() {
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
 
-  function addToCart(item) {
+  function addConfiguredItem(item) {
     setCart((currentCart) => [
       ...currentCart,
       {
         ...item,
-        cartId: `${item.id}-${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2, 8)}`,
-        unitPrice: item.price,
-        quantity: 1,
+        cartId:
+          item.cartId ||
+          `${item.id}-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`,
+        unitPrice: item.unitPrice ?? item.price,
+        quantity: item.quantity ?? 1,
       },
     ]);
 
+    setSelectedItem(null);
     setIsCartOpen(true);
+  }
+
+  function addToCart(item) {
+    if (item.customization) {
+      setSelectedItem(item);
+      return;
+    }
+
+    addConfiguredItem(item);
   }
 
   function updateQuantity(cartId, quantity) {
@@ -523,6 +798,136 @@ export default function App() {
           cursor: pointer;
         }
 
+
+        .product-options-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 2500;
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          padding: 14px;
+          background: rgba(0,0,0,.55);
+        }
+
+        .product-options-modal {
+          width: min(100%, 620px);
+          max-height: 90vh;
+          overflow-y: auto;
+          direction: rtl;
+          border-radius: 24px;
+          background: #fff;
+          color: #17120f;
+          box-shadow: 0 20px 60px rgba(0,0,0,.3);
+          padding: 20px;
+        }
+
+        .product-options__header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 18px;
+        }
+
+        .product-options__header h2 {
+          margin: 0;
+          font-size: 21px;
+        }
+
+        .product-options__header p {
+          margin: 5px 0 0;
+          color: #777;
+          font-size: 13px;
+        }
+
+        .product-options__section {
+          margin-top: 16px;
+        }
+
+        .product-options__section h3 {
+          margin: 0 0 9px;
+          font-size: 15px;
+        }
+
+        .product-options__choices {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 9px;
+        }
+
+        .product-option {
+          min-height: 48px;
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          padding: 10px 12px;
+          border: 1px solid #e6e6e6;
+          border-radius: 13px;
+          background: #fafafa;
+          cursor: pointer;
+          font: inherit;
+        }
+
+        .product-option--selected {
+          border-color: #e8622c;
+          background: #fff5ef;
+        }
+
+        .product-option input {
+          width: 18px;
+          height: 18px;
+          accent-color: #e8622c;
+          flex: 0 0 auto;
+        }
+
+        .product-option span {
+          font-size: 14px;
+          font-weight: 700;
+        }
+
+        .product-options__footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-top: 20px;
+          padding-top: 16px;
+          border-top: 1px solid #eee;
+        }
+
+        .product-options__footer strong {
+          font-size: 20px;
+          white-space: nowrap;
+        }
+
+        .product-options__confirm {
+          flex: 1;
+          min-height: 50px;
+          border: 0;
+          border-radius: 14px;
+          background: #1f8f4d;
+          color: #fff;
+          font: inherit;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        @media (max-width: 480px) {
+          .product-options__choices {
+            grid-template-columns: 1fr;
+          }
+
+          .product-options__footer {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .product-options__footer strong {
+            text-align: center;
+          }
+        }
+
         @media (min-width: 700px) {
           .cart-floating {
             left: auto;
@@ -530,7 +935,8 @@ export default function App() {
             width: 330px;
           }
 
-          .cart-modal-backdrop {
+          .cart-modal-backdrop,
+          .product-options-backdrop {
             align-items: center;
           }
         }
@@ -673,6 +1079,14 @@ export default function App() {
             {formatPrice(subtotal)}
           </span>
         </button>
+      )}
+
+      {selectedItem && (
+        <ProductOptionsModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onConfirm={addConfiguredItem}
+        />
       )}
 
       {isCartOpen && (
