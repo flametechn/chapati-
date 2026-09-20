@@ -1,0 +1,311 @@
+﻿export const storeConfig = {
+  name: "Chapati and Melfouf",
+  tagline: "أطيب الشباتي والملفوف في العلمة - اطلب الآن!",
+  whatsappNumber: "213558447723",
+  address: "العلمة، سطيف، الجزائر",
+  hours: "كل يوم من 11:00 إلى 23:00",
+  deliveryFee: 150,
+};
+
+export const heroImage =
+  "https://images.unsplash.com/photo-1763951719324-d1ff7eff0f7b?auto=format&fit=crop&w=1600&q=70";
+
+export const themes = {
+  violet: { from: "#2c1a5c", to: "#5b2a86" },
+  ember: { from: "#7a1220", to: "#e8622c" },
+  charcoal: { from: "#1c1712", to: "#3a2c22" },
+  olive: { from: "#22280f", to: "#93a33a" },
+  crimson: { from: "#5c0f18", to: "#b8202c" },
+};
+
+const specialOptions = [
+  { id: "cheese", name: "شيزي", price: 50 },
+  { id: "comopair", name: "كوموبير", price: 100 },
+  { id: "extra-scalope", name: "زيادة سكالوب", price: 50 },
+  { id: "extra-kebda", name: "زيادة كبدة", price: 50 },
+];
+
+export const menuGroups = [
+  {
+    id: "chapati-normal",
+    title: "الشباتي العادي",
+    items: [
+      {
+        id: "chapati-scalope",
+        name: "شباتي سكالوب",
+        desc: "شباتي سكالوب مع اختيار الصوص",
+        price: 200,
+        theme: "violet",
+        image: "/images/01-chapati-scalope.webp",
+      },
+      {
+        id: "chapati-kebda",
+        name: "شباتي كبدة",
+        desc: "شباتي كبدة مع اختيار الصوص",
+        price: 200,
+        theme: "ember",
+        image: "/images/02-chapati-kebda.webp",
+      },
+      {
+        id: "chapati-mix",
+        name: "شباتي ميكس",
+        desc: "شباتي ميكس مع اختيار الصوص",
+        price: 200,
+        theme: "charcoal",
+        image: "/images/03-chapati-mix.webp",
+      },
+      {
+        id: "chapati-simple-scalope",
+        name: "شباتي سامبل سكالوب",
+        desc: "شباتي سامبل سكالوب",
+        price: 150,
+        theme: "olive",
+        image: "/images/04-chapati-simple-scalope.webp",
+      },
+    ],
+  },
+
+  {
+    id: "chapati-special",
+    title: "الشباتي السبيسيال",
+    items: [
+      {
+        id: "special-scalope",
+        name: "شباتي سبيسيال سكالوب",
+        desc: "شباتي سبيسيال مع اختيار الإضافات",
+        price: 200,
+        theme: "violet",
+        image: "/images/05-chapati-special-scalope.webp",
+        options: specialOptions,
+      },
+      {
+        id: "special-kebda",
+        name: "شباتي سبيسيال كبدة",
+        desc: "شباتي سبيسيال مع اختيار الإضافات",
+        price: 200,
+        theme: "ember",
+        image: "/images/06-chapati-special-kebda.webp",
+        options: specialOptions,
+      },
+      {
+        id: "special-mix",
+        name: "شباتي سبيسيال ميكس",
+        desc: "شباتي سبيسيال مع اختيار الإضافات",
+        price: 200,
+        theme: "crimson",
+        image: "/images/07-chapati-special-mix.webp",
+        options: specialOptions,
+      },
+    ],
+  },
+
+  {
+    id: "malfouf",
+    title: "الملفوف",
+    items: [
+      {
+        id: "malfouf-scalope",
+        name: "ملفوف سكالوب",
+        desc: "ملفوف مع سكالوب واختيار الإضافات",
+        price: 200,
+        theme: "olive",
+        image: "/images/08-malfouf-scalope.webp",
+        options: specialOptions,
+      },
+      {
+        id: "malfouf-kebda",
+        name: "ملفوف كبدة",
+        desc: "ملفوف مع كبدة واختيار الإضافات",
+        price: 200,
+        theme: "ember",
+        image: "/images/09-malfouf-kebda.webp",
+        options: specialOptions,
+      },
+      {
+        id: "malfouf-mix",
+        name: "ملفوف ميكس",
+        desc: "ملفوف ميكس واختيار الإضافات",
+        price: 200,
+        theme: "crimson",
+        image: "/images/10-malfouf-mix.webp",
+        options: specialOptions,
+      },
+      {
+        id: "malfouf-special-scalope",
+        name: "ملفوف سبيسيال سكالوب",
+        desc: "ملفوف سبيسيال مع اختيار الإضافات",
+        price: 200,
+        theme: "violet",
+        image: "/images/11-malfouf-special-scalope.webp",
+        options: specialOptions,
+      },
+      {
+        id: "malfouf-special-kebda",
+        name: "ملفوف سبيسيال كبدة",
+        desc: "ملفوف سبيسيال مع اختيار الإضافات",
+        price: 200,
+        theme: "ember",
+        image: "/images/12-malfouf-special-kebda.webp",
+        options: specialOptions,
+      },
+      {
+        id: "malfouf-special-mix",
+        name: "ملفوف سبيسيال ميكس",
+        desc: "ملفوف سبيسيال ميكس مع اختيار الإضافات",
+        price: 200,
+        theme: "crimson",
+        image: "/images/13-malfouf-special-mix.webp",
+        options: specialOptions,
+      },
+    ],
+  },
+
+  {
+    id: "drinks",
+    title: "المشروبات",
+    items: [
+      {
+        id: "coca-cola-large",
+        name: "Coca-Cola",
+        desc: "كبير",
+        price: 130,
+        theme: "crimson",
+        image: "/images/14-coca-cola.webp",
+      },
+      {
+        id: "pepsi-large",
+        name: "Pepsi",
+        desc: "كبير",
+        price: 100,
+        theme: "violet",
+        image: "/images/15-pepsi.jpg",
+      },
+      {
+        id: "mirinda-large",
+        name: "Mirinda",
+        desc: "كبير",
+        price: 100,
+        theme: "ember",
+        image: "/images/16-mirinda.webp",
+      },
+      {
+        id: "hamoud-large",
+        name: "Hamoud",
+        desc: "كبير",
+        price: 100,
+        theme: "olive",
+        image: "/images/17-hamoud.webp",
+      },
+      {
+        id: "schweppes-large",
+        name: "Schweppes",
+        desc: "كبير",
+        price: 1500,
+        theme: "charcoal",
+        image: "/images/18-schweppes.webp",
+      },
+      {
+        id: "ifri-large",
+        name: "Ifri Juice",
+        desc: "كبير",
+        price: 150,
+        theme: "olive",
+        image: "/images/19-ifri.webp",
+      },
+      {
+        id: "bona-large",
+        name: "Bona",
+        desc: "كبير",
+        price: 100,
+        theme: "ember",
+        image: "/images/20-bona.webp",
+      },
+      {
+        id: "water-large",
+        name: "ماء",
+        desc: "كبير",
+        price: 400,
+        theme: "violet",
+        image: "/images/21-water.webp",
+      },
+
+      {
+        id: "coca-cola-mini",
+        name: "Coca-Cola",
+        desc: "Mini",
+        price: 60,
+        theme: "crimson",
+        image: "/images/14-coca-cola.webp",
+      },
+      {
+        id: "pepsi-mini",
+        name: "Pepsi",
+        desc: "Mini",
+        price: 60,
+        theme: "violet",
+        image: "/images/15-pepsi.jpg",
+      },
+      {
+        id: "mirinda-mini",
+        name: "Mirinda",
+        desc: "Mini",
+        price: 60,
+        theme: "ember",
+        image: "/images/16-mirinda.webp",
+      },
+      {
+        id: "hamoud-mini",
+        name: "Hamoud",
+        desc: "Mini",
+        price: 60,
+        theme: "olive",
+        image: "/images/17-hamoud.webp",
+      },
+      {
+        id: "schweppes-mini",
+        name: "Schweppes",
+        desc: "Mini",
+        price: 70,
+        theme: "charcoal",
+        image: "/images/18-schweppes.webp",
+      },
+      {
+        id: "ifri-mini",
+        name: "Ifri Juice",
+        desc: "Mini",
+        price: 60,
+        theme: "olive",
+        image: "/images/19-ifri.webp",
+      },
+      {
+        id: "bona-mini",
+        name: "Bona",
+        desc: "Mini",
+        price: 50,
+        theme: "ember",
+        image: "/images/20-bona.webp",
+      },
+      {
+        id: "water-mini",
+        name: "ماء",
+        desc: "Mini",
+        price: 25,
+        theme: "violet",
+        image: "/images/21-water.webp",
+      },
+    ],
+  },
+];
+
+export const sauces = [
+  { id: "spicy", name: "صلصة حارة", price: 0 },
+  { id: "mayonnaise", name: "مايوناز", price: 0 },
+];
+
+export const deliveryZones = [
+  "العلمة",
+  "قجال",
+  "بازر سكرة",
+  "بئر العرش",
+  "الزرقة",
+];
