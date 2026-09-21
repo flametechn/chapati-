@@ -5,6 +5,7 @@
   address: "العلمة، سطيف، الجزائر",
   hours: "كل يوم من 11:00 إلى 23:00",
   deliveryFee: 150,
+  ownerPassword: "ahlachapati1",
 };
 
 export const heroImage =
@@ -118,7 +119,7 @@ export const menuGroups = [
         desc: "ملفوف كبدة مع اختيار الصوص",
         price: 250,
         theme: "ember",
-        image: "/images/09-malfouf-kebda.jpg",
+        image: "/chapati-/images/09-malfouf-kebda.webp",
         customization: "normal",
       },
       {
@@ -203,7 +204,7 @@ export const menuGroups = [
         id: "schweppes-large",
         name: "Schweppes",
         desc: "كبير",
-        price: 1500,
+        price: 150,
         theme: "charcoal",
         image: "/chapati-/images/18-schweppes.webp",
       },
@@ -227,7 +228,7 @@ export const menuGroups = [
         id: "water-large",
         name: "ماء",
         desc: "كبير",
-        price: 400,
+        price: 50,
         theme: "violet",
         image: "/chapati-/images/21-water.webp",
       },
@@ -291,7 +292,7 @@ export const menuGroups = [
         id: "water-mini",
         name: "ماء",
         desc: "Mini",
-        price: 25,
+        price: 30,
         theme: "violet",
         image: "/chapati-/images/21-water.webp",
       },

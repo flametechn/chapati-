@@ -149,8 +149,39 @@
 
 /* ===== المنيو ===== */
 .menu {
+  position: relative;
   background: var(--bg);
   padding: 10px 0 30px;
+  overflow: hidden;
+}
+
+.menu-fire-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.menu-fire-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(23, 20, 15, 0.75) 0%,
+    rgba(23, 20, 15, 0.9) 60%,
+    var(--bg) 100%
+  );
+  pointer-events: none;
+}
+
+.menu-group {
+  position: relative;
+  z-index: 1;
 }
 
 .menu-group {
@@ -288,6 +319,51 @@
   padding: 6px 20px;
   border-radius: 999px;
   margin-bottom: 14px;
+}
+
+.story-card__qty {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.story-card__qty button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.story-card__qty strong {
+  color: #fff;
+  min-width: 18px;
+  text-align: center;
+}
+
+.product-options__qty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.product-options__qty button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 9px;
+  background: #f1f1f1;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .story-card__order {
@@ -512,5 +588,210 @@
 @media (min-width: 780px) {
   .floating-cta {
     display: none;
+  }
+}
+
+/* =========================================================
+   ?? CHAPATI FIRE AMBIENT BACKGROUND
+   ========================================================= */
+
+.fire-background {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse at 50% 115%,
+      rgba(255, 92, 0, 0.20) 0%,
+      rgba(255, 45, 0, 0.10) 25%,
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse at 15% 100%,
+      rgba(255, 140, 0, 0.12) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      ellipse at 85% 100%,
+      rgba(255, 60, 0, 0.12) 0%,
+      transparent 45%
+    ),
+    #090706;
+}
+
+/* Main atmospheric glow */
+.fire-background::before {
+  content: "";
+  position: absolute;
+  left: -15%;
+  right: -15%;
+  bottom: -32%;
+  height: 75%;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(255, 91, 0, 0.34) 0%,
+      rgba(255, 55, 0, 0.18) 28%,
+      rgba(120, 20, 0, 0.08) 52%,
+      transparent 72%
+    );
+  filter: blur(35px);
+  animation: fireBreath 4s ease-in-out infinite alternate;
+}
+
+/* Moving flame light */
+.fire-background::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -18%;
+  width: 80%;
+  height: 62%;
+  transform: translateX(-50%);
+  background:
+    radial-gradient(
+      ellipse at 25% 90%,
+      rgba(255, 125, 0, 0.25),
+      transparent 35%
+    ),
+    radial-gradient(
+      ellipse at 50% 85%,
+      rgba(255, 55, 0, 0.30),
+      transparent 38%
+    ),
+    radial-gradient(
+      ellipse at 75% 90%,
+      rgba(255, 145, 0, 0.20),
+      transparent 35%
+    );
+  filter: blur(28px);
+  animation: fireMove 5s ease-in-out infinite alternate;
+}
+
+/* Floating embers */
+.fire-embers {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.fire-embers span {
+  position: absolute;
+  bottom: -20px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #ff9a3c;
+  box-shadow:
+    0 0 6px #ff6a00,
+    0 0 14px rgba(255, 72, 0, 0.75);
+  opacity: 0;
+  animation: emberRise linear infinite;
+}
+
+.fire-embers span:nth-child(1) {
+  left: 8%;
+  animation-duration: 5s;
+  animation-delay: 0s;
+}
+
+.fire-embers span:nth-child(2) {
+  left: 18%;
+  animation-duration: 7s;
+  animation-delay: 2s;
+}
+
+.fire-embers span:nth-child(3) {
+  left: 29%;
+  animation-duration: 6s;
+  animation-delay: 1s;
+}
+
+.fire-embers span:nth-child(4) {
+  left: 41%;
+  animation-duration: 8s;
+  animation-delay: 3s;
+}
+
+.fire-embers span:nth-child(5) {
+  left: 52%;
+  animation-duration: 5.5s;
+  animation-delay: 1.5s;
+}
+
+.fire-embers span:nth-child(6) {
+  left: 64%;
+  animation-duration: 7.5s;
+  animation-delay: 0.5s;
+}
+
+.fire-embers span:nth-child(7) {
+  left: 76%;
+  animation-duration: 6.5s;
+  animation-delay: 2.5s;
+}
+
+.fire-embers span:nth-child(8) {
+  left: 88%;
+  animation-duration: 8.5s;
+  animation-delay: 4s;
+}
+
+@keyframes fireBreath {
+  from {
+    transform: scale(0.92) translateY(10px);
+    opacity: 0.65;
+  }
+
+  to {
+    transform: scale(1.08) translateY(-8px);
+    opacity: 1;
+  }
+}
+
+@keyframes fireMove {
+  0% {
+    transform: translateX(-50%) scaleX(0.88);
+  }
+
+  50% {
+    transform: translateX(-50%) scaleX(1.08) translateY(-12px);
+  }
+
+  100% {
+    transform: translateX(-50%) scaleX(0.94) translateY(5px);
+  }
+}
+
+@keyframes emberRise {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.4);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.9;
+  }
+
+  50% {
+    transform: translate3d(25px, -35vh, 0) scale(1);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: translate3d(-20px, -105vh, 0) scale(0.2);
+    opacity: 0;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .fire-background::before,
+  .fire-background::after,
+  .fire-embers span {
+    animation: none;
   }
 }

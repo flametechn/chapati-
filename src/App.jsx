@@ -1,8 +1,8 @@
-﻿import { useState } from "react";
+import { useEffect, useState } from "react";
 import { storeConfig, menuGroups, heroImage, themes, sauces } from "./config.js";
 import "./App.css";
-import DriverDashboard from "./DriverDashboard.jsx";
 import { supabase } from "./supabase.js";
+import { playClickSound, playSwipeSound } from "./sound.js";
 
 function waLink(text) {
   const base = `https://wa.me/${storeConfig.whatsappNumber}`;
@@ -13,8 +13,14 @@ function formatPrice(value) {
   return `${value.toLocaleString("fr-DZ")} دج`;
 }
 
-function StoryCard({ item, onAdd }) {
+function StoryCard({ item, onAdd, allowQuantity }) {
   const theme = themes[item.theme] || themes.violet;
+  const [quantity, setQuantity] = useState(1);
+
+  function handleAdd() {
+    onAdd(item, quantity);
+    setQuantity(1);
+  }
 
   return (
     <article
@@ -46,10 +52,30 @@ function StoryCard({ item, onAdd }) {
         {formatPrice(item.price)}
       </span>
 
+      {allowQuantity && (
+        <div className="story-card__qty">
+          <button
+            type="button"
+            onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+            aria-label={`إنقاص كمية ${item.name}`}
+          >
+            −
+          </button>
+          <strong>{quantity}</strong>
+          <button
+            type="button"
+            onClick={() => setQuantity((q) => q + 1)}
+            aria-label={`زيادة كمية ${item.name}`}
+          >
+            +
+          </button>
+        </div>
+      )}
+
       <button
         type="button"
         className="story-card__order"
-        onClick={() => onAdd(item)}
+        onClick={handleAdd}
       >
         أضف إلى السلة
       </button>
@@ -62,6 +88,7 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
   const isChapatiSpecial = item.customization === "chapati-special";
   const isMalfoufSpecial = item.customization === "malfouf-special";
   const isSpecial = isChapatiSpecial || isMalfoufSpecial;
+  const [quantity, setQuantity] = useState(item.initialQuantity || 1);
 
   const defaultType = item.type || "عادي";
 
@@ -89,11 +116,13 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
   const selectedOptions = [];
 
   if (isSpecial) {
-    selectedOptions.push({
-      id: "type",
-      name: `النوع: ${type}`,
-      price: 0,
-    });
+    if (isChapatiSpecial) {
+      selectedOptions.push({
+        id: "type",
+        name: `النوع: ${type}`,
+        price: 0,
+      });
+    }
 
     selectedOptions.push({
       id: specialChoice,
@@ -133,7 +162,7 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
       type,
       options: selectedOptions,
       unitPrice,
-      quantity: 1,
+      quantity,
       cartId: `${item.id}-${Date.now()}-${Math.random()
         .toString(36)
         .slice(2, 8)}`,
@@ -165,35 +194,37 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
             onClick={onClose}
             aria-label="إغلاق النافذة"
           >
-            ?
+            ×
           </button>
         </div>
 
         {isSpecial && (
           <>
-            <div className="product-options__section">
-              <h3>إضافات</h3>
+            {isChapatiSpecial && (
+              <div className="product-options__section">
+                <h3>إضافات</h3>
 
-              <div className="product-options__choices">
-                {["سكالوب", "كبدة", "ميكس"].map((option) => (
-                  <label
-                    className={`product-option ${
-                      type === option ? "product-option--selected" : ""
-                    }`}
-                    key={option}
-                  >
-                    <input
-                      type="radio"
-                      name="product-type"
-                      value={option}
-                      checked={type === option}
-                      onChange={() => setType(option)}
-                    />
-                    <span>{option}</span>
-                  </label>
-                ))}
+                <div className="product-options__choices">
+                  {["سكالوب", "كبدة", "ميكس"].map((option) => (
+                    <label
+                      className={`product-option ${
+                        type === option ? "product-option--selected" : ""
+                      }`}
+                      key={option}
+                    >
+                      <input
+                        type="radio"
+                        name="product-type"
+                        value={option}
+                        checked={type === option}
+                        onChange={() => setType(option)}
+                      />
+                      <span>{option}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="product-options__section">
               <h3>الإضافة الخاصة</h3>
@@ -304,14 +335,32 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
         </div>
 
         <div className="product-options__footer">
-          <strong>{formatPrice(unitPrice)}</strong>
+          <strong>{formatPrice(unitPrice * quantity)}</strong>
+
+          <div className="product-options__qty">
+            <button
+              type="button"
+              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              aria-label="إنقاص الكمية"
+            >
+              −
+            </button>
+            <strong>{quantity}</strong>
+            <button
+              type="button"
+              onClick={() => setQuantity((q) => q + 1)}
+              aria-label="زيادة الكمية"
+            >
+              +
+            </button>
+          </div>
 
           <button
             type="button"
             className="product-options__confirm"
             onClick={handleConfirm}
           >
-            اختر الصلصة
+            أضف إلى السلة
           </button>
         </div>
       </div>
@@ -321,13 +370,14 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
 
 function CartModal({
   cart,
+  customer,
   onClose,
   onUpdateQuantity,
   onRemove,
   onCheckout,
 }) {
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerName, setCustomerName] = useState(customer?.name || "");
+  const [customerPhone, setCustomerPhone] = useState(customer?.phone || "");
   const [customerAddress, setCustomerAddress] = useState("");
   const [formError, setFormError] = useState("");
 
@@ -440,17 +490,17 @@ function CartModal({
 
         <div className="cart-customer-form">
           <label>
-            الطلب مجهز
+            الاسم الكامل
             <input
               type="text"
               value={customerName}
               onChange={(event) => setCustomerName(event.target.value)}
-              placeholder="مثال: الاسم الكامل"
+              placeholder="مثال: أحمد بلحاج"
             />
           </label>
 
           <label>
-            الاسم
+            رقم الهاتف
             <input
               type="tel"
               inputMode="tel"
@@ -461,12 +511,12 @@ function CartModal({
           </label>
 
           <label>
-            الهاتف / الواتساب
+            الحي / العنوان
             <input
               type="text"
               value={customerAddress}
               onChange={(event) => setCustomerAddress(event.target.value)}
-              placeholder="مثال: العنوان"
+              placeholder="مثال: حي النصر، العلمة"
             />
           </label>
 
@@ -525,17 +575,64 @@ function CartModal({
 }
 
 export default function App() {
-  if (window.location.hash === "#/driver") {
-    return <DriverDashboard />;
-  }
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [ownerPhoneInput, setOwnerPhoneInput] = useState("");
+  const [ownerPasswordInput, setOwnerPasswordInput] = useState("");
   const [ownerOrdersToday, setOwnerOrdersToday] = useState(null);
   const [ownerCheckLoading, setOwnerCheckLoading] = useState(false);
   const [ownerCheckError, setOwnerCheckError] = useState("");
   const [ownerBoxDismissed, setOwnerBoxDismissed] = useState(false);
+
+  const [customer, setCustomer] = useState(() => {
+    try {
+      const saved = localStorage.getItem("chapati_customer");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isCustomerLoginOpen, setIsCustomerLoginOpen] = useState(false);
+  const [customerPhoneInput, setCustomerPhoneInput] = useState("");
+  const [customerNameInput, setCustomerNameInput] = useState("");
+  const [customerLoginLoading, setCustomerLoginLoading] = useState(false);
+  const [customerLoginError, setCustomerLoginError] = useState("");
+
+  useEffect(() => {
+    function handleClickSound(event) {
+      const target = event.target.closest("button, a");
+      if (target) {
+        playClickSound();
+      }
+    }
+
+    document.addEventListener("click", handleClickSound, true);
+    return () =>
+      document.removeEventListener("click", handleClickSound, true);
+  }, []);
+
+  useEffect(() => {
+    const strips = document.querySelectorAll(".menu-group__strip");
+    let lastPlay = 0;
+
+    function handleSwipeSound() {
+      const now = Date.now();
+      if (now - lastPlay > 220) {
+        lastPlay = now;
+        playSwipeSound();
+      }
+    }
+
+    strips.forEach((strip) =>
+      strip.addEventListener("scroll", handleSwipeSound, { passive: true })
+    );
+
+    return () =>
+      strips.forEach((strip) =>
+        strip.removeEventListener("scroll", handleSwipeSound)
+      );
+  }, []);
 
   async function checkOwnerPhone(event) {
     event.preventDefault();
@@ -543,8 +640,11 @@ export default function App() {
 
     const normalizedOwnerPhone = ownerPhoneInput.trim().replace(/^0/, "213");
 
-  if (normalizedOwnerPhone !== storeConfig.whatsappNumber) {
-      setOwnerCheckError("الرقم غير مصرح له.");
+    if (
+      normalizedOwnerPhone !== storeConfig.whatsappNumber ||
+      ownerPasswordInput !== storeConfig.ownerPassword
+    ) {
+      setOwnerCheckError("رقم الهاتف أو كلمة السر غير صحيحة.");
       return;
     }
 
@@ -567,6 +667,78 @@ export default function App() {
     setOwnerOrdersToday(data.count);
   }
 
+  async function loginCustomer(event) {
+    event.preventDefault();
+    setCustomerLoginError("");
+
+    const phone = customerPhoneInput.trim();
+    const name = customerNameInput.trim();
+
+    if (phone.length < 8) {
+      setCustomerLoginError("???? ???? ??? ???? ????.");
+      return;
+    }
+
+    if (name.length < 2) {
+      setCustomerLoginError("???? ???? تسجيل الدخول.");
+      return;
+    }
+
+    if (!supabase) {
+      setCustomerLoginError("???? ??????? ??? ????? ?????.");
+      return;
+    }
+
+    setCustomerLoginLoading(true);
+
+    const { data, error } = await supabase.rpc("customer_login", {
+      p_phone: phone,
+      p_name: name,
+    });
+
+    setCustomerLoginLoading(false);
+
+    if (error || !data?.success) {
+      setCustomerLoginError(
+        data?.message || "???? تسجيل الدخول. ???? ??? ???."
+      );
+      return;
+    }
+
+    const loggedCustomer = {
+      id: data.customer_id,
+      phone: data.phone,
+      name: data.name,
+    };
+
+    setCustomer(loggedCustomer);
+    localStorage.setItem(
+      "chapati_customer",
+      JSON.stringify(loggedCustomer)
+    );
+
+    setCustomerPhoneInput("");
+    setCustomerNameInput("");
+    setCustomerLoginError("");
+    setIsCustomerLoginOpen(false);
+  }
+
+  function logoutCustomer() {
+    setCustomer(null);
+    localStorage.removeItem("chapati_customer");
+  }
+
+  function openCustomerLogin() {
+    setCustomerLoginError("");
+
+    if (customer) {
+      setCustomerPhoneInput(customer.phone || "");
+      setCustomerNameInput(customer.name || "");
+    }
+
+    setIsCustomerLoginOpen(true);
+  }
+
   function addConfiguredItem(item) {
     setCart((currentCart) => [
       ...currentCart,
@@ -586,13 +758,13 @@ export default function App() {
     setIsCartOpen(true);
   }
 
-  function addToCart(item) {
+  function addToCart(item, quantity = 1) {
     if (item.customization) {
-      setSelectedItem(item);
+      setSelectedItem({ ...item, initialQuantity: quantity });
       return;
     }
 
-    addConfiguredItem(item);
+    addConfiguredItem({ ...item, quantity });
   }
 
   function updateQuantity(cartId, quantity) {
@@ -652,6 +824,7 @@ export default function App() {
         p_items: orderItems,
         p_total: total,
         p_delivery_fee: delivery,
+        p_customer_id: customer?.id || null,
       });
     }
 
@@ -707,6 +880,19 @@ export default function App() {
 
   return (
     <>
+      <div className="fire-background" aria-hidden="true">
+        <div className="fire-embers">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+
       <style>{`
         .cart-floating {
           position: fixed;
@@ -1063,6 +1249,153 @@ export default function App() {
           }
         }
 
+        .site-header__actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .site-header__customer {
+          min-height: 42px;
+          padding: 0 14px;
+          border: 1px solid rgba(255,255,255,.2);
+          border-radius: 12px;
+          background: rgba(255,255,255,.08);
+          color: inherit;
+          font: inherit;
+          font-weight: 700;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .site-header__customer:hover {
+          background: rgba(255,255,255,.14);
+        }
+
+        .customer-login-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 4000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 16px;
+          background: rgba(0,0,0,.6);
+        }
+
+        .customer-login-modal {
+          width: min(100%, 440px);
+          direction: rtl;
+          border-radius: 24px;
+          background: #fff;
+          color: #17120f;
+          box-shadow: 0 24px 70px rgba(0,0,0,.35);
+          padding: 22px;
+        }
+
+        .customer-login__header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 14px;
+          margin-bottom: 20px;
+        }
+
+        .customer-login__header h2 {
+          margin: 0;
+          font-size: 22px;
+        }
+
+        .customer-login__header p {
+          margin: 6px 0 0;
+          color: #777;
+          font-size: 13px;
+          line-height: 1.6;
+        }
+
+        .customer-login__form {
+          display: grid;
+          gap: 12px;
+        }
+
+        .customer-login__form label {
+          display: grid;
+          gap: 7px;
+          font-weight: 700;
+          font-size: 14px;
+        }
+
+        .customer-login__form input {
+          width: 100%;
+          min-height: 48px;
+          box-sizing: border-box;
+          border: 1px solid #ddd;
+          border-radius: 13px;
+          padding: 0 13px;
+          background: #fafafa;
+          color: #17120f;
+          font: inherit;
+          outline: none;
+        }
+
+        .customer-login__form input:focus {
+          border-color: #e8622c;
+          box-shadow: 0 0 0 3px rgba(232,98,44,.12);
+        }
+
+        .customer-login__error {
+          display: block;
+          padding: 10px 12px;
+          border-radius: 11px;
+          background: #fff0f0;
+          color: #b8202c;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+
+        .customer-login__submit {
+          width: 100%;
+          min-height: 50px;
+          margin-top: 4px;
+          border: 0;
+          border-radius: 14px;
+          background: #e8622c;
+          color: #fff;
+          font: inherit;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .customer-login__submit:disabled {
+          opacity: .65;
+          cursor: wait;
+        }
+
+        .customer-login__logout {
+          width: 100%;
+          min-height: 46px;
+          margin-top: 10px;
+          border: 1px solid #ddd;
+          border-radius: 13px;
+          background: #fff;
+          color: #b8202c;
+          font: inherit;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        @media (max-width: 520px) {
+          .site-header__actions {
+            gap: 6px;
+          }
+
+          .site-header__customer {
+            max-width: 130px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+        }
+
         .owner-check {
           max-width: 420px;
           margin: 10px auto 0;
@@ -1141,13 +1474,33 @@ export default function App() {
           {storeConfig.name}
         </span>
 
-        <button
-          type="button"
-          className="site-header__cta"
-          onClick={() => setIsCartOpen(true)}
+        <div className="site-header__actions">
+          {customer ? (
+            <button
+              type="button"
+              className="site-header__customer"
+              onClick={openCustomerLogin}
+            >
+              {customer.name}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="site-header__customer"
+              onClick={openCustomerLogin}
+            >
+              تسجيل الدخول
+            </button>
+          )}
+
+          <button
+            type="button"
+            className="site-header__cta"
+            onClick={() => setIsCartOpen(true)}
         >
           السلة {totalItems > 0 && `(${totalItems})`}
         </button>
+        </div>
       </header>
 
       {!ownerBoxDismissed && (
@@ -1157,9 +1510,21 @@ export default function App() {
               <input
                 type="tel"
                 inputMode="tel"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck="false"
                 value={ownerPhoneInput}
                 onChange={(event) => setOwnerPhoneInput(event.target.value)}
                 placeholder="رقم الهاتف (اختياري)"
+              />
+
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={ownerPasswordInput}
+                onChange={(event) => setOwnerPasswordInput(event.target.value)}
+                placeholder="كلمة السر"
               />
 
               <button type="submit" disabled={ownerCheckLoading}>
@@ -1233,6 +1598,17 @@ export default function App() {
       </section>
 
       <main className="menu">
+        <video
+          className="menu-fire-video"
+          src="/chapati-/videos/fire-loop.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          aria-hidden="true"
+        ></video>
+        <div className="menu-fire-overlay" aria-hidden="true"></div>
+
         {menuGroups.map((group) => (
           <section
             className="menu-group"
@@ -1249,6 +1625,7 @@ export default function App() {
                   item={item}
                   key={item.id}
                   onAdd={addToCart}
+                  allowQuantity={group.id !== "drinks"}
                 />
               ))}
             </div>
@@ -1287,6 +1664,102 @@ export default function App() {
         </button>
       </footer>
 
+      {isCustomerLoginOpen && (
+        <div
+          className="customer-login-backdrop"
+          role="presentation"
+          onClick={() => setIsCustomerLoginOpen(false)}
+        >
+          <div
+            className="customer-login-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="customer-login-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="customer-login__header">
+              <div>
+                <h2 id="customer-login-title">
+                  {customer
+                    ? "\u062d\u0633\u0627\u0628\u064a"
+                    : "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644"}
+                </h2>
+                <p>
+                  {"\u0623\u062f\u062e\u0644 \u0627\u0633\u0645\u0643 \u0648\u0631\u0642\u0645 \u0647\u0627\u062a\u0641\u0643 \u0644\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644."}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="cart-modal__close"
+                onClick={() => setIsCustomerLoginOpen(false)}
+                aria-label={"\u0625\u063a\u0644\u0627\u0642"}
+              >
+                {"\u00d7"}
+              </button>
+            </div>
+
+            <form onSubmit={loginCustomer} className="customer-login__form">
+              <label>
+                {"\u0627\u0644\u0627\u0633\u0645"}
+                <input
+                  type="text"
+                  value={customerNameInput}
+                  onChange={(event) =>
+                    setCustomerNameInput(event.target.value)
+                  }
+                  placeholder={"\u0645\u062b\u0627\u0644: \u0623\u062d\u0645\u062f"}
+                  autoComplete="name"
+                />
+              </label>
+
+              <label>
+                {"\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062a\u0641"}
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  value={customerPhoneInput}
+                  onChange={(event) =>
+                    setCustomerPhoneInput(event.target.value)
+                  }
+                  placeholder="0550000000"
+                  autoComplete="tel"
+                />
+              </label>
+
+              {customerLoginError && (
+                <small className="customer-login__error">
+                  {customerLoginError}
+                </small>
+              )}
+
+              <button
+                type="submit"
+                className="customer-login__submit"
+                disabled={customerLoginLoading}
+              >
+                {customerLoginLoading
+                  ? "\u062c\u0627\u0631\u064a \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644..."
+                  : "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644"}
+              </button>
+            </form>
+
+            {customer && (
+              <button
+                type="button"
+                className="customer-login__logout"
+                onClick={() => {
+                  logoutCustomer();
+                  setIsCustomerLoginOpen(false);
+                }}
+              >
+                {"\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062e\u0631\u0648\u062c"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {cart.length > 0 && (
         <button
           type="button"
@@ -1322,6 +1795,7 @@ export default function App() {
       {isCartOpen && (
         <CartModal
           cart={cart}
+          customer={customer}
           onClose={() => setIsCartOpen(false)}
           onUpdateQuantity={updateQuantity}
           onRemove={removeFromCart}
