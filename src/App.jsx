@@ -547,7 +547,7 @@ export default function App() {
     }
 
     if (!supabase) {
-      setOwnerCheckError("???? ??????? ??? ????? ??????.");
+      setOwnerCheckError("\u062e\u062f\u0645\u0629 \u0627\u0644\u0637\u0644\u0628\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629 \u062d\u0627\u0644\u064a\u0627\u064b.");
       return;
     }
 
