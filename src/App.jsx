@@ -546,6 +546,11 @@ export default function App() {
       return;
     }
 
+    if (!supabase) {
+      setOwnerCheckError("???? ??????? ??? ????? ??????.");
+      return;
+    }
+
     setOwnerCheckLoading(true);
 
     const { data, error } = await supabase.rpc("get_orders_today_count");
@@ -637,14 +642,16 @@ export default function App() {
       options: item.options || [],
     }));
 
-    await supabase.rpc("create_order", {
-      p_customer_name: customerName,
-      p_customer_phone: customerPhone,
-      p_customer_address: customerAddress,
-      p_items: orderItems,
-      p_total: total,
-      p_delivery_fee: delivery,
-    });
+    if (supabase) {
+      await supabase.rpc("create_order", {
+        p_customer_name: customerName,
+        p_customer_phone: customerPhone,
+        p_customer_address: customerAddress,
+        p_items: orderItems,
+        p_total: total,
+        p_delivery_fee: delivery,
+      });
+    }
 
     const lines = cart.map((item, index) => {
       const options =
