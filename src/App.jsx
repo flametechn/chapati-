@@ -541,7 +541,9 @@ export default function App() {
     event.preventDefault();
     setOwnerCheckError("");
 
-    if (ownerPhoneInput.trim() !== storeConfig.whatsappNumber) {
+    const normalizedOwnerPhone = ownerPhoneInput.trim().replace(/^0/, "213");
+
+  if (normalizedOwnerPhone !== storeConfig.whatsappNumber) {
       setOwnerCheckError("الرقم غير مصرح له.");
       return;
     }
