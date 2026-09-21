@@ -1,6 +1,8 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { storeConfig, menuGroups, heroImage, themes, sauces } from "./config.js";
 import "./App.css";
+import DriverDashboard from "./DriverDashboard.jsx";
+import { supabase } from "./supabase.js";
 
 function waLink(text) {
   const base = `https://wa.me/${storeConfig.whatsappNumber}`;
@@ -61,7 +63,7 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
   const isMalfoufSpecial = item.customization === "malfouf-special";
   const isSpecial = isChapatiSpecial || isMalfoufSpecial;
 
-  const defaultType = item.type || "??????";
+  const defaultType = item.type || "عادي";
 
   const [type, setType] = useState(defaultType);
   const [specialChoice, setSpecialChoice] = useState(
@@ -89,20 +91,20 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
   if (isSpecial) {
     selectedOptions.push({
       id: "type",
-      name: `?????: ${type}`,
+      name: `النوع: ${type}`,
       price: 0,
     });
 
     selectedOptions.push({
       id: specialChoice,
-      name: specialChoice === "cheese" ? "????" : "???????",
+      name: specialChoice === "cheese" ? "شيزي" : "كوموبير",
       price: specialChoice === "cheese" ? 0 : isChapatiSpecial ? 50 : 50,
     });
 
     if (isChapatiSpecial && extraScalop) {
       selectedOptions.push({
         id: "extra-scalope",
-        name: "????? ??????",
+        name: "إضافة سكالوب",
         price: 50,
       });
     }
@@ -110,7 +112,7 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
     if (isChapatiSpecial && extraKebda) {
       selectedOptions.push({
         id: "extra-kebda",
-        name: "????? ????",
+        name: "إضافة كبدة",
         price: 50,
       });
     }
@@ -148,20 +150,20 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
         className="product-options-modal"
         role="dialog"
         aria-modal="true"
-        aria-label={`???????? ${item.name}`}
+        aria-label={`خيارات المنتج ${item.name}`}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="product-options__header">
           <div>
             <h2>{item.name}</h2>
-            <p>???? ???????? ???? ??????</p>
+            <p>اختر الإضافات التي تريدها</p>
           </div>
 
           <button
             type="button"
             className="cart-modal__close"
             onClick={onClose}
-            aria-label="????? ??????????"
+            aria-label="إغلاق النافذة"
           >
             ?
           </button>
@@ -170,10 +172,10 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
         {isSpecial && (
           <>
             <div className="product-options__section">
-              <h3>?????? ?????</h3>
+              <h3>إضافات</h3>
 
               <div className="product-options__choices">
-                {["??????", "????", "????"].map((option) => (
+                {["سكالوب", "كبدة", "ميكس"].map((option) => (
                   <label
                     className={`product-option ${
                       type === option ? "product-option--selected" : ""
@@ -194,7 +196,7 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
             </div>
 
             <div className="product-options__section">
-              <h3>?????? ?????????</h3>
+              <h3>الإضافة الخاصة</h3>
 
               <div className="product-options__choices">
                 <label
@@ -212,7 +214,7 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
                     onChange={() => setSpecialChoice("cheese")}
                   />
                   <span>
-                    ???? ? {formatPrice(isChapatiSpecial ? 250 : 300)}
+                    شيزي + {formatPrice(isChapatiSpecial ? 250 : 300)}
                   </span>
                 </label>
 
@@ -231,7 +233,7 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
                     onChange={() => setSpecialChoice("comopair")}
                   />
                   <span>
-                    ??????? ? {formatPrice(isChapatiSpecial ? 300 : 350)}
+                    كوموبير + {formatPrice(isChapatiSpecial ? 300 : 350)}
                   </span>
                 </label>
               </div>
@@ -239,7 +241,7 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
 
             {isChapatiSpecial && (
               <div className="product-options__section">
-                <h3>?????? ?????</h3>
+                <h3>إضافات</h3>
 
                 <div className="product-options__choices">
                   <label
@@ -254,7 +256,7 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
                         setExtraScalop(event.target.checked)
                       }
                     />
-                    <span>????? ?????? +50 ??</span>
+                    <span>إضافة سكالوب +50 دج</span>
                   </label>
 
                   <label
@@ -269,7 +271,7 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
                         setExtraKebda(event.target.checked)
                       }
                     />
-                    <span>????? ???? +50 ??</span>
+                    <span>إضافة كبدة +50 دج</span>
                   </label>
                 </div>
               </div>
@@ -278,7 +280,7 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
         )}
 
         <div className="product-options__section">
-          <h3>?????</h3>
+          <h3>الصلصة</h3>
 
           <div className="product-options__choices">
             {sauces.map((option) => (
@@ -309,7 +311,7 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
             className="product-options__confirm"
             onClick={handleConfirm}
           >
-            ??? ??? ?????
+            اختر الصلصة
           </button>
         </div>
       </div>
@@ -324,6 +326,11 @@ function CartModal({
   onRemove,
   onCheckout,
 }) {
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [formError, setFormError] = useState("");
+
   const subtotal = cart.reduce(
     (total, item) => total + item.unitPrice * item.quantity,
     0
@@ -431,6 +438,43 @@ function CartModal({
           ))}
         </div>
 
+        <div className="cart-customer-form">
+          <label>
+            الطلب مجهز
+            <input
+              type="text"
+              value={customerName}
+              onChange={(event) => setCustomerName(event.target.value)}
+              placeholder="مثال: الاسم الكامل"
+            />
+          </label>
+
+          <label>
+            الاسم
+            <input
+              type="tel"
+              inputMode="tel"
+              value={customerPhone}
+              onChange={(event) => setCustomerPhone(event.target.value)}
+              placeholder="0550000000"
+            />
+          </label>
+
+          <label>
+            الهاتف / الواتساب
+            <input
+              type="text"
+              value={customerAddress}
+              onChange={(event) => setCustomerAddress(event.target.value)}
+              placeholder="مثال: العنوان"
+            />
+          </label>
+
+          {formError && (
+            <small className="cart-customer-form__error">{formError}</small>
+          )}
+        </div>
+
         <div className="cart-summary">
           <div>
             <span>مجموع المنتجات</span>
@@ -451,13 +495,27 @@ function CartModal({
         <button
           type="button"
           className="cart-modal__checkout"
-          onClick={() =>
+          onClick={() => {
+            if (
+              customerName.trim().length < 2 ||
+              customerPhone.trim().length < 8 ||
+              customerAddress.trim().length < 3
+            ) {
+              setFormError("يرجى تعبئة الاسم ورقم الهاتف والعنوان كاملين.");
+              return;
+            }
+
+            setFormError("");
+
             onCheckout({
               subtotal,
               delivery,
               total,
-            })
-          }
+              customerName: customerName.trim(),
+              customerPhone: customerPhone.trim(),
+              customerAddress: customerAddress.trim(),
+            });
+          }}
         >
           تأكيد الطلب عبر واتساب
         </button>
@@ -467,9 +525,40 @@ function CartModal({
 }
 
 export default function App() {
+  if (window.location.hash === "#/driver") {
+    return <DriverDashboard />;
+  }
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [ownerPhoneInput, setOwnerPhoneInput] = useState("");
+  const [ownerOrdersToday, setOwnerOrdersToday] = useState(null);
+  const [ownerCheckLoading, setOwnerCheckLoading] = useState(false);
+  const [ownerCheckError, setOwnerCheckError] = useState("");
+  const [ownerBoxDismissed, setOwnerBoxDismissed] = useState(false);
+
+  async function checkOwnerPhone(event) {
+    event.preventDefault();
+    setOwnerCheckError("");
+
+    if (ownerPhoneInput.trim() !== storeConfig.whatsappNumber) {
+      setOwnerCheckError("الرقم غير مصرح له.");
+      return;
+    }
+
+    setOwnerCheckLoading(true);
+
+    const { data, error } = await supabase.rpc("get_orders_today_count");
+
+    setOwnerCheckLoading(false);
+
+    if (error || !data?.success) {
+      setOwnerCheckError("يرجى إدخال رقم الهاتف.");
+      return;
+    }
+
+    setOwnerOrdersToday(data.count);
+  }
 
   function addConfiguredItem(item) {
     setCart((currentCart) => [
@@ -530,12 +619,32 @@ export default function App() {
     );
   }
 
-  function checkoutOrder({
+  async function checkoutOrder({
     subtotal,
     delivery,
     total,
+    customerName,
+    customerPhone,
+    customerAddress,
   }) {
     if (cart.length === 0) return;
+
+    const orderItems = cart.map((item) => ({
+      id: item.id,
+      name: item.name,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      options: item.options || [],
+    }));
+
+    await supabase.rpc("create_order", {
+      p_customer_name: customerName,
+      p_customer_phone: customerPhone,
+      p_customer_address: customerAddress,
+      p_items: orderItems,
+      p_total: total,
+      p_delivery_fee: delivery,
+    });
 
     const lines = cart.map((item, index) => {
       const options =
@@ -553,6 +662,10 @@ export default function App() {
     });
 
     const message = [
+      `الاسم: ${customerName}`,
+      `الهاتف: ${customerPhone}`,
+      `العنوان: ${customerAddress}`,
+      "",
       `السلام عليكم، أرغب في طلب من ${storeConfig.name}`,
       "",
       "تفاصيل الطلب:",
@@ -940,6 +1053,78 @@ export default function App() {
             align-items: center;
           }
         }
+
+        .owner-check {
+          max-width: 420px;
+          margin: 10px auto 0;
+          padding: 10px 14px;
+        }
+
+        .owner-check__form {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .owner-check__form input {
+          flex: 1;
+          min-height: 40px;
+          border-radius: 10px;
+          border: 1px solid #ddd;
+          padding: 0 12px;
+          font: inherit;
+        }
+
+        .owner-check__form button {
+          min-height: 40px;
+          border-radius: 10px;
+          border: 0;
+          padding: 0 14px;
+          font: inherit;
+          cursor: pointer;
+        }
+
+        .owner-check__skip {
+          background: transparent;
+          color: #777;
+        }
+
+        .owner-check__result {
+          text-align: center;
+          font-weight: 800;
+          padding: 8px;
+        }
+
+        .owner-check__error {
+          display: block;
+          color: #a52323;
+          margin-top: 6px;
+        }
+
+        .cart-customer-form {
+          display: grid;
+          gap: 10px;
+          margin: 14px 0;
+        }
+
+        .cart-customer-form label {
+          display: grid;
+          gap: 6px;
+          font-weight: 700;
+          font-size: 13px;
+        }
+
+        .cart-customer-form input {
+          min-height: 44px;
+          border-radius: 12px;
+          border: 1px solid #ddd;
+          padding: 0 12px;
+          font: inherit;
+        }
+
+        .cart-customer-form__error {
+          color: #a52323;
+        }
       `}</style>
 
       <header className="site-header">
@@ -955,6 +1140,42 @@ export default function App() {
           السلة {totalItems > 0 && `(${totalItems})`}
         </button>
       </header>
+
+      {!ownerBoxDismissed && (
+        <div className="owner-check">
+          {ownerOrdersToday === null ? (
+            <form className="owner-check__form" onSubmit={checkOwnerPhone}>
+              <input
+                type="tel"
+                inputMode="tel"
+                value={ownerPhoneInput}
+                onChange={(event) => setOwnerPhoneInput(event.target.value)}
+                placeholder="رقم الهاتف (اختياري)"
+              />
+
+              <button type="submit" disabled={ownerCheckLoading}>
+                {ownerCheckLoading ? "..." : "دخول"}
+              </button>
+
+              <button
+                type="button"
+                className="owner-check__skip"
+                onClick={() => setOwnerBoxDismissed(true)}
+              >
+                تخطي
+              </button>
+            </form>
+          ) : (
+            <div className="owner-check__result">
+              عدد الطلبات اليوم: <strong>{ownerOrdersToday}</strong>
+            </div>
+          )}
+
+          {ownerCheckError && (
+            <small className="owner-check__error">{ownerCheckError}</small>
+          )}
+        </div>
+      )}
 
       <section className="hero">
         <div
@@ -1101,3 +1322,7 @@ export default function App() {
     </>
   );
 }
+
+
+
+

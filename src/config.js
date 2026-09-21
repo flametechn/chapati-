@@ -118,7 +118,7 @@ export const menuGroups = [
         desc: "ملفوف كبدة مع اختيار الصوص",
         price: 250,
         theme: "ember",
-        image: "/chapati-/images/09-malfouf-kebda.webp",
+        image: "/images/09-malfouf-kebda.jpg",
         customization: "normal",
       },
       {
