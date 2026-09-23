@@ -273,20 +273,6 @@ export default function DriverDashboard({ onLogout }) {
         5000
       );
 
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, [sessionToken, driver]);
-  /* =====================================================
-     DRIVER ORDERS REALTIME SUBSCRIPTION
-     ===================================================== */
-
-  useEffect(() => {
-    if (!supabase || !sessionToken || !driver?.id) {
-      return undefined;
-    }
-
     const channel = supabase
       .channel(`driver-orders-realtime-${driver.id}`)
       .on(
@@ -304,9 +290,11 @@ export default function DriverDashboard({ onLogout }) {
       .subscribe();
 
     return () => {
+      active = false;
+      window.clearInterval(timer);
       supabase.removeChannel(channel);
     };
-  }, [sessionToken, driver?.id]);
+  }, [sessionToken, driver]);
   useEffect(() => {
     if (!sessionToken || !driver) {
       setDriverLocation(null);
@@ -1021,6 +1009,7 @@ export default function DriverDashboard({ onLogout }) {
     </main>
   );
 }
+
 
 
 
