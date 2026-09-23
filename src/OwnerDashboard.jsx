@@ -106,12 +106,169 @@ export default function OwnerDashboard({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
+  const [
+    broadcastTitle,
+    setBroadcastTitle,
+  ] = useState("");
+
+  const [
+    broadcastMessage,
+    setBroadcastMessage,
+  ] = useState("");
+
+  const [
+    broadcastLoading,
+    setBroadcastLoading,
+  ] = useState(false);
+
   useEffect(() => {
     if (sessionToken) {
       loadDashboard(sessionToken);
     }
   }, []);
 
+  /* =====================================================
+     OWNER REALTIME SUBSCRIPTION
+     ===================================================== */
+
+  useEffect(() => {
+    if (!supabase || !sessionToken) {
+      return undefined;
+    }
+
+    const channel = supabase
+      .channel(`owner-realtime-${sessionToken}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+        },
+        () => {
+          loadDashboard(sessionToken);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "drivers",
+        },
+        () => {
+          loadDashboard(sessionToken);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "driver_locations",
+        },
+        () => {
+          loadDashboard(sessionToken);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "product_availability",
+        },
+        () => {
+          loadProductAvailability();
+          loadDashboard(sessionToken);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [sessionToken]);
+  async function sendBroadcastMessage() {
+    const title = broadcastTitle.trim();
+    const messageText = broadcastMessage.trim();
+
+    if (!sessionToken) {
+      setError("جلسة المالك غير صالحة.");
+      return;
+    }
+
+    if (!title) {
+      setError("أدخل عنوان الرسالة.");
+      return;
+    }
+
+    if (!messageText) {
+      setError("أدخل نص الرسالة.");
+      return;
+    }
+
+    setBroadcastLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const { data, error: rpcError } =
+        await supabase.rpc(
+          "owner_broadcast_message",
+          {
+            p_owner_session_token:
+              sessionToken,
+            p_title: title,
+            p_message: messageText,
+            p_message_type: "info",
+          }
+        );
+
+      if (rpcError) {
+        throw rpcError;
+      }
+
+      if (!data?.success) {
+        const errorMessages = {
+          invalid_or_expired_session:
+            "انتهت جلسة صاحب المحل.",
+          invalid_title:
+            "عنوان الرسالة غير صالح.",
+          invalid_message:
+            "نص الرسالة غير صالح.",
+        };
+
+        setError(
+          errorMessages[data?.error] ||
+            data?.error ||
+            "تعذر إرسال الرسالة."
+        );
+        return;
+      }
+
+      setBroadcastTitle("");
+      setBroadcastMessage("");
+
+      setMessage(
+        `تم إرسال الرسالة إلى ${
+          Number(data.customers_notified || 0)
+        } زبون.`
+      );
+    } catch (requestError) {
+      console.error(
+        "owner_broadcast_message:",
+        requestError
+      );
+
+      setError(
+        requestError?.message ||
+          "تعذر إرسال الرسالة."
+      );
+    } finally {
+      setBroadcastLoading(false);
+    }
+  }
   async function loadProductAvailability() {
     const { data, error: availabilityError } = await supabase
       .from("product_availability")
@@ -734,6 +891,61 @@ export default function OwnerDashboard({
           </article>
         </section>
 
+        <section className="owner-section owner-broadcast">
+          <div className="owner-section__heading">
+            <div>
+              <span className="owner-eyebrow">
+                الرسائل
+              </span>
+              <h2>إرسال رسالة لجميع الزبائن</h2>
+            </div>
+          </div>
+
+          <div className="owner-broadcast__form">
+            <label>
+              عنوان الرسالة
+              <input
+                type="text"
+                value={broadcastTitle}
+                onChange={(event) =>
+                  setBroadcastTitle(
+                    event.target.value
+                  )
+                }
+                placeholder="عنوان الرسالة"
+                disabled={broadcastLoading}
+              />
+            </label>
+
+            <label>
+              نص الرسالة
+              <textarea
+                value={broadcastMessage}
+                onChange={(event) =>
+                  setBroadcastMessage(
+                    event.target.value
+                  )
+                }
+                placeholder="اكتب الرسالة هنا..."
+                rows={5}
+                disabled={broadcastLoading}
+              />
+            </label>
+
+            <button
+              type="button"
+              className="owner-primary"
+              onClick={sendBroadcastMessage}
+              disabled={broadcastLoading}
+            >
+              {broadcastLoading
+                ? "جاري الإرسال..."
+                : "إرسال لجميع الزبائن"}
+            </button>
+          </div>
+        </section>
+
+
         <section className="owner-section">
           <div className="owner-section__heading">
             <div>
@@ -1350,3 +1562,6 @@ export default function OwnerDashboard({
     </main>
   );
 }
+
+
+

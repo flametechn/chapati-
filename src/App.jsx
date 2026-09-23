@@ -1004,6 +1004,34 @@ export default function App() {
     }
   }
 
+  /* =====================================================
+     PRODUCT AVAILABILITY REALTIME SUBSCRIPTION
+     ===================================================== */
+
+  useEffect(() => {
+    if (!supabase) {
+      return undefined;
+    }
+
+    const channel = supabase
+      .channel("product-availability-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "product_availability",
+        },
+        () => {
+          loadProductAvailability();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
   useEffect(() => {
     loadProductAvailability();
 
@@ -1370,6 +1398,90 @@ export default function App() {
     authUser?.sessionToken,
   ]);
 
+  /* =====================================================
+     CUSTOMER REALTIME SUBSCRIPTION
+     ===================================================== */
+
+  useEffect(() => {
+    if (
+      !supabase ||
+      authUser?.role !== "customer" ||
+      !authUser?.sessionToken ||
+      !authUser?.id
+    ) {
+      return undefined;
+    }
+
+    const token = authUser.sessionToken;
+    const customerId = authUser.id;
+
+    const channel = supabase
+      .channel(`customer-realtime-${customerId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "customer_notifications",
+          filter: `customer_id=eq.${customerId}`,
+        },
+        () => {
+          loadCustomerNotifications(token);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "customer_points",
+          filter: `customer_id=eq.${customerId}`,
+        },
+        (payload) => {
+          if (
+            payload?.new &&
+            payload.new.points != null
+          ) {
+            setCustomerPoints(
+              Number(payload.new.points || 0)
+            );
+          } else {
+            loadCustomerPoints(token);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `customer_id=eq.${customerId}`,
+        },
+        (payload) => {
+          if (
+            payload?.new?.id === customerOrderTrackingId &&
+            customerOrderTrackingToken
+          ) {
+            loadCustomerOrderTracking(
+              customerOrderTrackingId,
+              customerOrderTrackingToken
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [
+    authUser?.id,
+    authUser?.role,
+    authUser?.sessionToken,
+    customerOrderTrackingId,
+    customerOrderTrackingToken,
+  ]);
   function openAuthLogin() {
     setAuthLoginError("");
     setAuthPhoneError("");
@@ -4028,6 +4140,9 @@ quantity: item.quantity,
     </>
   );
 }
+
+
+
 
 
 

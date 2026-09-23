@@ -1,4 +1,4 @@
-/* =========================================================
+﻿/* =========================================================
    OWNER DASHBOARD — CHAPATI FIRE VISUAL SYSTEM
    ========================================================= */
 
@@ -1676,4 +1676,36 @@
   .owner-page textarea {
     transition: none !important;
   }
+}
+/* CUSTOMER BROADCAST MESSAGE */
+
+.owner-broadcast {
+  margin-bottom: 24px;
+}
+
+.owner-broadcast__form {
+  display: grid;
+  gap: 14px;
+}
+
+.owner-broadcast__form label {
+  display: grid;
+  gap: 7px;
+  font-weight: 800;
+}
+
+.owner-broadcast__form input,
+.owner-broadcast__form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  font: inherit;
+  background: #fff;
+}
+
+.owner-broadcast__form textarea {
+  resize: vertical;
+  min-height: 120px;
 }

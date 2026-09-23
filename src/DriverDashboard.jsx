@@ -278,6 +278,35 @@ export default function DriverDashboard({ onLogout }) {
       window.clearInterval(timer);
     };
   }, [sessionToken, driver]);
+  /* =====================================================
+     DRIVER ORDERS REALTIME SUBSCRIPTION
+     ===================================================== */
+
+  useEffect(() => {
+    if (!supabase || !sessionToken || !driver?.id) {
+      return undefined;
+    }
+
+    const channel = supabase
+      .channel(`driver-orders-realtime-${driver.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `driver_id=eq.${driver.id}`,
+        },
+        () => {
+          refreshOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [sessionToken, driver?.id]);
   useEffect(() => {
     if (!sessionToken || !driver) {
       setDriverLocation(null);
@@ -992,6 +1021,9 @@ export default function DriverDashboard({ onLogout }) {
     </main>
   );
 }
+
+
+
 
 
 
