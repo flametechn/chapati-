@@ -1,4 +1,6 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 import { supabase } from "./supabase.js";
 import "./DriverDashboard.css";
 
@@ -20,12 +22,157 @@ const NEXT_STATUS = {
     next: "delivering",
     label: "في الطريق",
   },
-  delivering: {
-    next: "delivered",
-    label: "تم التوصيل",
-  },
+  delivering: null,
 };
 
+let activeOrderAlertStop = null;
+let alertAudioContext = null;
+
+function unlockDriverAlertAudio() {
+  try {
+    const AudioContextClass =
+      window.AudioContext ||
+      window.webkitAudioContext;
+
+    if (!AudioContextClass) return;
+
+    if (!alertAudioContext) {
+      alertAudioContext = new AudioContextClass();
+    }
+
+    if (alertAudioContext.state === "suspended") {
+      alertAudioContext.resume().catch(() => {});
+    }
+  } catch (error) {
+    console.error("audio unlock error:", error);
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener(
+    "pointerdown",
+    unlockDriverAlertAudio,
+    { passive: true }
+  );
+
+  window.addEventListener(
+    "keydown",
+    unlockDriverAlertAudio
+  );
+}
+
+function playNewOrderAlert() {
+  try {
+    if (activeOrderAlertStop) {
+      activeOrderAlertStop();
+      activeOrderAlertStop = null;
+    }
+
+    const AudioContextClass =
+      window.AudioContext ||
+      window.webkitAudioContext;
+
+    if (!AudioContextClass) return;
+
+    if (!alertAudioContext || alertAudioContext.state === "closed") {
+      alertAudioContext = new AudioContextClass();
+    }
+
+    const ctx = alertAudioContext;
+
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
+    let stopped = false;
+    let timer = null;
+    let oscillators = [];
+
+    const ringBurst = () => {
+      if (stopped || ctx.state === "closed") return;
+
+      const now = ctx.currentTime;
+
+      const createTone = (frequency, start, duration) => {
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(
+          frequency,
+          start
+        );
+
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(
+          0.9,
+          start + 0.03
+        );
+        gain.gain.setValueAtTime(
+          0.9,
+          start + duration - 0.08
+        );
+        gain.gain.exponentialRampToValueAtTime(
+          0.0001,
+          start + duration
+        );
+
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+
+        oscillator.start(start);
+        oscillator.stop(start + duration);
+
+        oscillators.push(oscillator);
+      };
+
+      // رنين هاتف مزدوج عالي الصوت
+      createTone(880, now, 0.65);
+      createTone(1175, now, 0.65);
+
+      createTone(880, now + 0.78, 0.65);
+      createTone(1175, now + 0.78, 0.65);
+
+      timer = window.setTimeout(
+        ringBurst,
+        2200
+      );
+    };
+
+    ringBurst();
+
+    activeOrderAlertStop = () => {
+      stopped = true;
+
+      if (timer) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+
+      oscillators.forEach((oscillator) => {
+        try {
+          oscillator.stop();
+        } catch (_) {}
+      });
+
+      oscillators = [];
+
+      activeOrderAlertStop = null;
+    };
+  } catch (error) {
+    console.error(
+      "new order alert error:",
+      error
+    );
+  }
+}
+
+function stopNewOrderAlert() {
+  if (activeOrderAlertStop) {
+    activeOrderAlertStop();
+    activeOrderAlertStop = null;
+  }
+}
 function formatPrice(value) {
   return `${Number(value || 0).toLocaleString("fr-DZ")} دج`;
 }
@@ -38,12 +185,13 @@ function formatDate(value) {
   });
 }
 
-export default function DriverDashboard() {
+export default function DriverDashboard({ onLogout }) {
   const [sessionToken, setSessionToken] = useState(
     () => localStorage.getItem(SESSION_KEY) || ""
   );
   const [driver, setDriver] = useState(null);
   const [orders, setOrders] = useState([]);
+  const previousOrderIdsRef = useRef(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [loginForm, setLoginForm] = useState({
     phone: "",
@@ -53,6 +201,8 @@ export default function DriverDashboard() {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [driverLocation, setDriverLocation] = useState(null);
+  const [driverRoute, setDriverRoute] = useState([]);
 
   useEffect(() => {
     if (sessionToken) {
@@ -60,6 +210,251 @@ export default function DriverDashboard() {
     }
   }, []);
 
+
+  useEffect(() => {
+    if (!sessionToken || !driver) {
+      previousOrderIdsRef.current = null;
+      return undefined;
+    }
+
+    let active = true;
+
+    const refreshOrders = async () => {
+      if (!active) return;
+
+      const oldIds =
+        previousOrderIdsRef.current;
+
+      const { data, error: rpcError } =
+        await supabase.rpc(
+          "driver_get_orders",
+          {
+            p_session_token: sessionToken,
+          }
+        );
+
+      if (
+        !active ||
+        rpcError ||
+        !data?.success
+      ) {
+        return;
+      }
+
+      const nextOrders =
+        Array.isArray(data.orders)
+          ? data.orders
+          : [];
+
+      console.log("DRIVER ORDERS:", nextOrders);
+
+      const assignedOrders = nextOrders.filter(
+        (order) => order.status === "assigned"
+      );
+
+      console.log("ASSIGNED ORDERS:", assignedOrders);
+
+      if (assignedOrders.length > 0) {
+        if (!activeOrderAlertStop) {
+          playNewOrderAlert();
+        }
+      } else {
+        stopNewOrderAlert();
+      }
+
+      setOrders(nextOrders);
+    };
+
+    refreshOrders();
+
+    const timer =
+      window.setInterval(
+        refreshOrders,
+        5000
+      );
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [sessionToken, driver]);
+  useEffect(() => {
+    if (!sessionToken || !driver) {
+      setDriverLocation(null);
+      return undefined;
+    }
+
+    if (!navigator.geolocation) {
+      console.warn("Geolocation is not supported by this browser.");
+      return undefined;
+    }
+
+    let active = true;
+
+    const sendDriverLocation = async (position) => {
+      if (!active) return;
+
+      const latitude = Number(position.coords.latitude);
+      const longitude = Number(position.coords.longitude);
+
+      if (
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude)
+      ) {
+        return;
+      }
+
+      setDriverLocation({
+        latitude,
+        longitude,
+      });
+
+      const { data, error: rpcError } =
+        await supabase.rpc("driver_update_location", {
+          p_session_token: sessionToken,
+          p_latitude: latitude,
+          p_longitude: longitude,
+        });
+
+      if (rpcError) {
+        console.warn(
+          "Driver location update failed:",
+          rpcError
+        );
+        return;
+      }
+
+      if (!data?.success) {
+        console.warn(
+          "Driver location update rejected:",
+          data?.error
+        );
+      }
+    };
+
+    const watchId = navigator.geolocation.watchPosition(
+      sendDriverLocation,
+      (geoError) => {
+        console.warn(
+          "Driver GPS error:",
+          geoError?.message || geoError
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 15000,
+      }
+    );
+
+    return () => {
+      active = false;
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [sessionToken, driver]);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDriverRoute() {
+      if (
+        !selectedOrder ||
+        selectedOrder.customer_latitude == null ||
+        selectedOrder.customer_longitude == null ||
+        !driverLocation
+      ) {
+        setDriverRoute([]);
+        return;
+      }
+
+      const driverLat = Number(driverLocation.latitude);
+      const driverLng = Number(driverLocation.longitude);
+      const customerLat = Number(selectedOrder.customer_latitude);
+      const customerLng = Number(selectedOrder.customer_longitude);
+
+      if (
+        !Number.isFinite(driverLat) ||
+        !Number.isFinite(driverLng) ||
+        !Number.isFinite(customerLat) ||
+        !Number.isFinite(customerLng)
+      ) {
+        setDriverRoute([]);
+        return;
+      }
+
+      const fallbackRoute = [
+        [driverLat, driverLng],
+        [customerLat, customerLng],
+      ];
+
+      try {
+        const routeUrl =
+          "https://router.project-osrm.org/route/v1/driving/" +
+          `${driverLng},${driverLat};` +
+          `${customerLng},${customerLat}` +
+          "?overview=full&geometries=geojson";
+
+        const response = await fetch(routeUrl);
+
+        if (!response.ok) {
+          throw new Error(
+            `OSRM HTTP ${response.status}`
+          );
+        }
+
+        const routeData = await response.json();
+
+        const coordinates =
+          routeData?.routes?.[0]?.geometry?.coordinates;
+
+        if (
+          !Array.isArray(coordinates) ||
+          coordinates.length < 2
+        ) {
+          throw new Error(
+            "No route geometry returned."
+          );
+        }
+
+        const leafletRoute = coordinates
+          .map(([lng, lat]) => [
+            Number(lat),
+            Number(lng),
+          ])
+          .filter(
+            ([lat, lng]) =>
+              Number.isFinite(lat) &&
+              Number.isFinite(lng)
+          );
+
+        if (!cancelled) {
+          setDriverRoute(
+            leafletRoute.length >= 2
+              ? leafletRoute
+              : fallbackRoute
+          );
+        }
+      } catch (routeError) {
+        console.warn(
+          "Driver route request failed:",
+          routeError
+        );
+
+        if (!cancelled) {
+          setDriverRoute(fallbackRoute);
+        }
+      }
+    }
+
+    loadDriverRoute();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedOrder,
+    driverLocation?.latitude,
+    driverLocation?.longitude,
+  ]);
   async function validateSession() {
     setLoading(true);
     setError("");
@@ -159,6 +554,10 @@ export default function DriverDashboard() {
     setSelectedOrder(null);
     setMessage("");
     setError("");
+
+    if (onLogout) {
+      onLogout();
+    }
   }
 
   async function toggleOnline() {
@@ -186,10 +585,17 @@ export default function DriverDashboard() {
     }
 
     setDriver(data.driver);
-    setMessage(nextStatus ? "صبحت متصلاً الن." : "تم إيقاف حالة الاتصال.");
+    setMessage(nextStatus ? "أصبحت متصلاً الآن." : "تم إيقاف حالة الاتصال.");
   }
 
   async function updateOrderStatus(order, nextStatus) {
+    if (
+      order.status === "assigned" &&
+      nextStatus === "picked_up"
+    ) {
+      stopNewOrderAlert();
+    }
+
     setLoading(true);
     setError("");
     setMessage("");
@@ -434,6 +840,73 @@ export default function DriverDashboard() {
                 <span>العنوان</span>
                 <strong>{selectedOrder.customer_address}</strong>
               </div>
+
+              {selectedOrder.customer_latitude != null &&
+                selectedOrder.customer_longitude != null && (
+                <div className="driver-location-map">
+                  <div className="driver-location-map__header">
+                    <span>Customer location</span>
+                    <a
+                      href={`https://www.google.com/maps?q=${Number(selectedOrder.customer_latitude)},${Number(selectedOrder.customer_longitude)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      Open Google Maps
+                    </a>
+                  </div>
+
+                  <MapContainer
+                    center={[
+                      Number(selectedOrder.customer_latitude),
+                      Number(selectedOrder.customer_longitude),
+                    ]}
+                    zoom={16}
+                    scrollWheelZoom={false}
+                    style={{
+                      height: "280px",
+                      width: "100%",
+                      borderRadius: "16px",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <TileLayer
+                      attribution="&copy; OpenStreetMap contributors"
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <Marker
+                      position={[
+                        Number(selectedOrder.customer_latitude),
+                        Number(selectedOrder.customer_longitude),
+                      ]}
+                    >
+                      <Popup>Customer location</Popup>
+                    </Marker>
+
+                    {driverLocation && (
+                      <Marker
+                        position={[
+                          Number(driverLocation.latitude),
+                          Number(driverLocation.longitude),
+                        ]}
+                      >
+                        <Popup>Driver location</Popup>
+                      </Marker>
+                    )}
+
+                    {driverRoute.length >= 2 && (
+                      <Polyline
+                        positions={driverRoute}
+                        pathOptions={{
+                          color: "#2563eb",
+                          weight: 6,
+                          opacity: 0.85,
+                        }}
+                      />
+                    )}
+                  </MapContainer>
+                </div>
+              )}
               <div>
                 <span>الحالة</span>
                 <strong>{STATUS_LABELS[selectedOrder.status]}</strong>
@@ -455,6 +928,31 @@ export default function DriverDashboard() {
                 selectedOrder.items.map((item, index) => (
                   <div className="driver-item" key={item.id || index}>
                     <span>{item.name || "منتج"}</span>
+                    
+                    {Array.isArray(item.options) &&
+                    item.options.length > 0 && (
+                      <small className="driver-item__options">
+                        {"\u0627\u0644\u0625\u0636\u0627\u0641\u0627\u062a: "}
+                        {item.options.map(
+                          (option, optionIndex) => (
+                            <span
+                              key={
+                                option.id ||
+                                optionIndex
+                              }
+                            >
+                              {option.name ||
+                                option}
+                              {optionIndex <
+                                item.options.length - 1
+                                ? " + "
+                                : ""}
+                            </span>
+                          )
+                        )}
+                      </small>
+                    )}
+
                     <strong>
                       {item.quantity || 1}
                     </strong>
@@ -494,3 +992,21 @@ export default function DriverDashboard() {
     </main>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

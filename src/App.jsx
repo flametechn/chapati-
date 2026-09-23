@@ -1,30 +1,43 @@
-import { useEffect, useState } from "react";
-import { storeConfig, menuGroups, heroImage, themes, sauces } from "./config.js";
+﻿import { useEffect, useState } from "react";
+import { MapContainer, TileLayer, Marker } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import {
+  storeConfig,
+  menuGroups,
+  heroImage,
+  themes,
+  sauces,
+} from "./config.js";
 import "./App.css";
 import { supabase } from "./supabase.js";
 import { playClickSound, playSwipeSound } from "./sound.js";
-
-function waLink(text) {
-  const base = `https://wa.me/${storeConfig.whatsappNumber}`;
-  return text ? `${base}?text=${encodeURIComponent(text)}` : base;
-}
+import OwnerDashboard from "./OwnerDashboard.jsx";
+import DriverDashboard from "./DriverDashboard.jsx";
 
 function formatPrice(value) {
   return `${value.toLocaleString("fr-DZ")} دج`;
 }
 
-function StoryCard({ item, onAdd, allowQuantity }) {
+/* =========================================================
+   PRODUCT CARD
+   ========================================================= */
+
+function StoryCard({ item, onAdd, allowQuantity, available = true }) {
   const theme = themes[item.theme] || themes.violet;
   const [quantity, setQuantity] = useState(1);
 
   function handleAdd() {
+    if (!available) return;
+
     onAdd(item, quantity);
     setQuantity(1);
   }
 
   return (
     <article
-      className="story-card"
+      className={`story-card ${
+        available ? "" : "story-card--unavailable"
+      }`}
       style={{
         "--card-from": theme.from,
         "--card-to": theme.to,
@@ -34,11 +47,21 @@ function StoryCard({ item, onAdd, allowQuantity }) {
 
       <div className="story-card__body">
         <h3 className="story-card__name">{item.name}</h3>
+
         <p className="story-card__desc">{item.desc}</p>
       </div>
 
-      <div className="story-card__figure">
-        <div className="story-card__shadow" aria-hidden="true"></div>
+      {/* Glow 2 style */}
+      <div className="story-card__figure glow2-product">
+        <div
+          className="glow2-product__light"
+          aria-hidden="true"
+        ></div>
+
+        <div
+          className="story-card__shadow"
+          aria-hidden="true"
+        ></div>
 
         <img
           className="story-card__img"
@@ -52,16 +75,30 @@ function StoryCard({ item, onAdd, allowQuantity }) {
         {formatPrice(item.price)}
       </span>
 
-      {allowQuantity && (
+      <span
+        className={`story-card__availability ${
+          available ? "is-available" : "is-unavailable"
+        }`}
+      >
+        {available
+          ? "\u0645\u062a\u0648\u0641\u0631"
+          : "\u063a\u064a\u0631 \u0645\u062a\u0648\u0641\u0631"}
+      </span>
+
+      {allowQuantity && available && (
         <div className="story-card__qty">
           <button
             type="button"
-            onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+            onClick={() =>
+              setQuantity((q) => Math.max(1, q - 1))
+            }
             aria-label={`إنقاص كمية ${item.name}`}
           >
-            −
+            -
           </button>
+
           <strong>{quantity}</strong>
+
           <button
             type="button"
             onClick={() => setQuantity((q) => q + 1)}
@@ -76,41 +113,87 @@ function StoryCard({ item, onAdd, allowQuantity }) {
         type="button"
         className="story-card__order"
         onClick={handleAdd}
+        disabled={!available}
       >
-        أضف إلى السلة
+        {available
+          ? "\u0623\u0636\u0641 \u0625\u0644\u0649 \u0627\u0644\u0633\u0644\u0629"
+          : "\u063a\u064a\u0631 \u0645\u062a\u0648\u0641\u0631"}
       </button>
     </article>
   );
 }
 
+/* =========================================================
+   PRODUCT OPTIONS
+   ========================================================= */
 
-function ProductOptionsModal({ item, onClose, onConfirm }) {
-  const isChapatiSpecial = item.customization === "chapati-special";
-  const isMalfoufSpecial = item.customization === "malfouf-special";
-  const isSpecial = isChapatiSpecial || isMalfoufSpecial;
-  const [quantity, setQuantity] = useState(item.initialQuantity || 1);
+function ProductOptionsModal({
+  item,
+  onClose,
+  onConfirm,
+}) {
+  const isChapatiSpecial =
+    item.customization === "chapati-special";
 
-  const defaultType = item.type || "عادي";
+  const isMalfoufSpecial =
+    item.customization === "malfouf-special";
+
+  const isSpecial =
+    isChapatiSpecial || isMalfoufSpecial;
+
+  const [quantity, setQuantity] = useState(
+    item.initialQuantity || 1
+  );
+
+  const detectedFilling =
+    item.name?.includes("سكالوب")
+      ? "سكالوب"
+      : item.name?.includes("كبدة")
+        ? "كبدة"
+        : item.name?.includes("ميكس")
+          ? "ميكس"
+          : null;
+
+  const defaultType =
+    ["سكالوب", "كبدة", "ميكس"].includes(item.type)
+      ? item.type
+      : detectedFilling || "عادي";
 
   const [type, setType] = useState(defaultType);
-  const [specialChoice, setSpecialChoice] = useState(
-    isChapatiSpecial ? "cheese" : "cheese"
-  );
-  const [sauce, setSauce] = useState("with-sauce");
-  const [extraScalop, setExtraScalop] = useState(false);
-  const [extraKebda, setExtraKebda] = useState(false);
 
-  const basePrice = isChapatiSpecial ? 250 : isMalfoufSpecial ? 300 : item.price;
+  const [specialChoice, setSpecialChoice] =
+    useState("cheese");
+
+  const [sauce, setSauce] = useState(["mayonnaise"]);
+
+  const [extraFilling, setExtraFilling] =
+    useState(false);
+
+  const [freeExtras, setFreeExtras] = useState([]);
+
+  const basePrice = isChapatiSpecial
+    ? 250
+    : isMalfoufSpecial
+      ? 300
+      : item.price;
+
+  const fillingType = isSpecial
+    ? ["سكالوب", "كبدة", "ميكس"].includes(type)
+      ? type
+      : detectedFilling
+    : detectedFilling;
 
   let unitPrice = basePrice;
 
-  if (isSpecial && specialChoice === "comopair") {
+  if (
+    isSpecial &&
+    specialChoice === "comopair"
+  ) {
     unitPrice = isChapatiSpecial ? 300 : 350;
   }
 
-  if (isChapatiSpecial) {
-    if (extraScalop) unitPrice += 50;
-    if (extraKebda) unitPrice += 50;
+  if (extraFilling && fillingType) {
+    unitPrice += 50;
   }
 
   const selectedOptions = [];
@@ -126,34 +209,71 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
 
     selectedOptions.push({
       id: specialChoice,
-      name: specialChoice === "cheese" ? "شيزي" : "كوموبير",
-      price: specialChoice === "cheese" ? 0 : isChapatiSpecial ? 50 : 50,
+      name:
+        specialChoice === "cheese"
+          ? "شيزي"
+          : "كوموبير",
+      price:
+        specialChoice === "cheese"
+          ? 0
+          : 50,
     });
-
-    if (isChapatiSpecial && extraScalop) {
-      selectedOptions.push({
-        id: "extra-scalope",
-        name: "إضافة سكالوب",
-        price: 50,
-      });
-    }
-
-    if (isChapatiSpecial && extraKebda) {
-      selectedOptions.push({
-        id: "extra-kebda",
-        name: "إضافة كبدة",
-        price: 50,
-      });
-    }
   }
 
-  const selectedSauce =
-    sauces.find((option) => option.id === sauce) || sauces[0];
+  if (extraFilling && fillingType) {
+    selectedOptions.push({
+      id:
+        fillingType === "سكالوب"
+          ? "extra-scalope"
+          : fillingType === "كبدة"
+            ? "extra-kebda"
+            : "extra-mix",
+      name: `إضافة ${fillingType}`,
+      price: 50,
+    });
+  }
 
-  selectedOptions.push({
-    id: selectedSauce.id,
-    name: selectedSauce.name,
-    price: 0,
+  const freeExtraOptions = [
+    {
+      id: "onion",
+      name: "بصل",
+    },
+    {
+      id: "dabcha",
+      name: "دبشة",
+    },
+    {
+      id: "pepper",
+      name: "فلفل",
+    },
+  ];
+
+  freeExtras.forEach((extraId) => {
+    const extra = freeExtraOptions.find(
+      (option) => option.id === extraId
+    );
+
+    if (extra) {
+      selectedOptions.push({
+        id: extra.id,
+        name: extra.name,
+        price: 0,
+      });
+    }
+  });
+
+  sauce.forEach((sauceId) => {
+    const selectedSauce = sauces.find(
+      (option) => option.id === sauceId
+    );
+
+    if (selectedSauce) {
+      selectedOptions.push({
+        id: selectedSauce.id,
+        name: selectedSauce.name,
+        price: 0,
+      });
+    }
   });
 
   function handleConfirm() {
@@ -169,6 +289,16 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
     });
   }
 
+  function toggleFreeExtra(extraId) {
+    setFreeExtras((current) =>
+      current.includes(extraId)
+        ? current.filter(
+            (id) => id !== extraId
+          )
+        : [...current, extraId]
+    );
+  }
+
   return (
     <div
       className="product-options-backdrop"
@@ -180,12 +310,17 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
         role="dialog"
         aria-modal="true"
         aria-label={`خيارات المنتج ${item.name}`}
-        onClick={(event) => event.stopPropagation()}
+        onClick={(event) =>
+          event.stopPropagation()
+        }
       >
         <div className="product-options__header">
           <div>
             <h2>{item.name}</h2>
-            <p>اختر الإضافات التي تريدها</p>
+
+            <p>
+              اختر الإضافات التي تريدها
+            </p>
           </div>
 
           <button
@@ -202,13 +337,19 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
           <>
             {isChapatiSpecial && (
               <div className="product-options__section">
-                <h3>إضافات</h3>
+                <h3>نوع الحشوة</h3>
 
                 <div className="product-options__choices">
-                  {["سكالوب", "كبدة", "ميكس"].map((option) => (
+                  {[
+                    "سكالوب",
+                    "كبدة",
+                    "ميكس",
+                  ].map((option) => (
                     <label
                       className={`product-option ${
-                        type === option ? "product-option--selected" : ""
+                        type === option
+                          ? "product-option--selected"
+                          : ""
                       }`}
                       key={option}
                     >
@@ -217,8 +358,12 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
                         name="product-type"
                         value={option}
                         checked={type === option}
-                        onChange={() => setType(option)}
+                        onChange={() => {
+                          setType(option);
+                          setExtraFilling(false);
+                        }}
                       />
+
                       <span>{option}</span>
                     </label>
                   ))}
@@ -241,11 +386,16 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
                     type="radio"
                     name="special-choice"
                     value="cheese"
-                    checked={specialChoice === "cheese"}
-                    onChange={() => setSpecialChoice("cheese")}
+                    checked={
+                      specialChoice === "cheese"
+                    }
+                    onChange={() =>
+                      setSpecialChoice("cheese")
+                    }
                   />
+
                   <span>
-                    شيزي + {formatPrice(isChapatiSpecial ? 250 : 300)}
+                    شيزي + {formatPrice(50)}
                   </span>
                 </label>
 
@@ -260,54 +410,93 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
                     type="radio"
                     name="special-choice"
                     value="comopair"
-                    checked={specialChoice === "comopair"}
-                    onChange={() => setSpecialChoice("comopair")}
+                    checked={
+                      specialChoice === "comopair"
+                    }
+                    onChange={() =>
+                      setSpecialChoice("comopair")
+                    }
                   />
+
                   <span>
-                    كوموبير + {formatPrice(isChapatiSpecial ? 300 : 350)}
+                    كوموبير + {formatPrice(100)}
                   </span>
                 </label>
               </div>
             </div>
-
-            {isChapatiSpecial && (
-              <div className="product-options__section">
-                <h3>إضافات</h3>
-
-                <div className="product-options__choices">
-                  <label
-                    className={`product-option ${
-                      extraScalop ? "product-option--selected" : ""
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={extraScalop}
-                      onChange={(event) =>
-                        setExtraScalop(event.target.checked)
-                      }
-                    />
-                    <span>إضافة سكالوب +50 دج</span>
-                  </label>
-
-                  <label
-                    className={`product-option ${
-                      extraKebda ? "product-option--selected" : ""
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={extraKebda}
-                      onChange={(event) =>
-                        setExtraKebda(event.target.checked)
-                      }
-                    />
-                    <span>إضافة كبدة +50 دج</span>
-                  </label>
-                </div>
-              </div>
-            )}
           </>
+        )}
+
+        {fillingType && (
+          <div className="product-options__section">
+            <h3>إضافة حشوة</h3>
+
+            <div className="product-options__choices">
+              <label
+                className={`product-option ${
+                  extraFilling
+                    ? "product-option--selected"
+                    : ""
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={extraFilling}
+                  onChange={(event) =>
+                    setExtraFilling(
+                      event.target.checked
+                    )
+                  }
+                />
+
+                <span>
+                  إضافة {fillingType} +50 دج
+                </span>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {fillingType && (
+          <div className="product-options__section">
+            <h3>إضافات مجانية</h3>
+
+            <div className="product-options__choices">
+              {freeExtraOptions.map(
+                (option) => {
+                  const selected =
+                    freeExtras.includes(
+                      option.id
+                    );
+
+                  return (
+                    <label
+                      className={`product-option ${
+                        selected
+                          ? "product-option--selected"
+                          : ""
+                      }`}
+                      key={option.id}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() =>
+                          toggleFreeExtra(
+                            option.id
+                          )
+                        }
+                      />
+
+                      <span>
+                        {option.name} مجاني
+                      </span>
+                    </label>
+                  );
+                }
+              )}
+            </div>
+          </div>
         )}
 
         <div className="product-options__section">
@@ -317,17 +506,34 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
             {sauces.map((option) => (
               <label
                 className={`product-option ${
-                  sauce === option.id ? "product-option--selected" : ""
+                  sauce.includes(option.id)
+                    ? "product-option--selected"
+                    : ""
                 }`}
                 key={option.id}
               >
                 <input
-                  type="radio"
+                  type="checkbox"
                   name="product-sauce"
                   value={option.id}
-                  checked={sauce === option.id}
-                  onChange={() => setSauce(option.id)}
+                  checked={sauce.includes(
+                    option.id
+                  )}
+                  onChange={() =>
+                    setSauce((current) =>
+                      current.includes(option.id)
+                        ? current.filter(
+                            (id) =>
+                              id !== option.id
+                          )
+                        : [
+                            ...current,
+                            option.id,
+                          ]
+                    )
+                  }
                 />
+
                 <span>{option.name}</span>
               </label>
             ))}
@@ -335,20 +541,32 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
         </div>
 
         <div className="product-options__footer">
-          <strong>{formatPrice(unitPrice * quantity)}</strong>
+          <strong>
+            {formatPrice(
+              unitPrice * quantity
+            )}
+          </strong>
 
           <div className="product-options__qty">
             <button
               type="button"
-              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              onClick={() =>
+                setQuantity((q) =>
+                  Math.max(1, q - 1)
+                )
+              }
               aria-label="إنقاص الكمية"
             >
-              −
+              -
             </button>
+
             <strong>{quantity}</strong>
+
             <button
               type="button"
-              onClick={() => setQuantity((q) => q + 1)}
+              onClick={() =>
+                setQuantity((q) => q + 1)
+              }
               aria-label="زيادة الكمية"
             >
               +
@@ -368,6 +586,10 @@ function ProductOptionsModal({ item, onClose, onConfirm }) {
   );
 }
 
+/* =========================================================
+   CART
+   ========================================================= */
+
 function CartModal({
   cart,
   customer,
@@ -376,21 +598,80 @@ function CartModal({
   onRemove,
   onCheckout,
 }) {
-  const [customerName, setCustomerName] = useState(customer?.name || "");
-  const [customerPhone, setCustomerPhone] = useState(customer?.phone || "");
-  const [customerAddress, setCustomerAddress] = useState("");
-  const [formError, setFormError] = useState("");
+  const [customerName, setCustomerName] =
+    useState(customer?.name || "");
+
+  const [customerPhone, setCustomerPhone] =
+    useState(customer?.phone || "");
+
+  const [customerAddress, setCustomerAddress] =
+    useState("");
+
+  const [customerLatitude, setCustomerLatitude] =
+    useState(null);
+
+  const [customerLongitude, setCustomerLongitude] =
+    useState(null);
+
+  const [gpsLoading, setGpsLoading] =
+    useState(false);
+
+  const [formError, setFormError] =
+    useState("");
+
+  function handleGetCustomerLocation() {
+    if (!navigator.geolocation) {
+      setFormError(
+        "المتصفح لا يدعم تحديد الموقع."
+      );
+      return;
+    }
+
+    setGpsLoading(true);
+    setFormError("");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCustomerLatitude(
+          position.coords.latitude
+        );
+
+        setCustomerLongitude(
+          position.coords.longitude
+        );
+
+        setGpsLoading(false);
+      },
+      () => {
+        setGpsLoading(false);
+        setFormError(
+          "تعذر الحصول على موقعك. يرجى السماح بالوصول إلى الموقع."
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    );
+  }
 
   const subtotal = cart.reduce(
-    (total, item) => total + item.unitPrice * item.quantity,
+    (total, item) =>
+      total + item.unitPrice * item.quantity,
     0
   );
 
-  const delivery = cart.length > 0 ? storeConfig.deliveryFee : 0;
+  const delivery =
+    cart.length > 0
+      ? storeConfig.deliveryFee
+      : 0;
+
   const total = subtotal + delivery;
 
   const totalItems = cart.reduce(
-    (total, item) => total + item.quantity,
+    (total, item) =>
+      total + item.quantity,
     0
   );
 
@@ -405,7 +686,9 @@ function CartModal({
         role="dialog"
         aria-modal="true"
         aria-label="سلة الطلب"
-        onClick={(event) => event.stopPropagation()}
+        onClick={(event) =>
+          event.stopPropagation()
+        }
       >
         <div className="cart-modal__header">
           <div>
@@ -413,7 +696,9 @@ function CartModal({
 
             <span>
               {totalItems}{" "}
-              {totalItems === 1 ? "منتج" : "منتجات"}
+              {totalItems === 1
+                ? "منتج"
+                : "منتجات"}
             </span>
           </div>
 
@@ -429,8 +714,14 @@ function CartModal({
 
         <div className="cart-modal__items">
           {cart.map((item) => (
-            <div className="cart-item" key={item.cartId}>
-              <img src={item.image} alt={item.name} />
+            <div
+              className="cart-item"
+              key={item.cartId}
+            >
+              <img
+                src={item.image}
+                alt={item.name}
+              />
 
               <div className="cart-item__info">
                 <strong>{item.name}</strong>
@@ -439,12 +730,19 @@ function CartModal({
                   <small>
                     الإضافات:{" "}
                     {item.options
-                      .map((option) => option.name)
+                      .map(
+                        (option) =>
+                          option.name
+                      )
                       .join(" + ")}
                   </small>
                 )}
 
-                <span>{formatPrice(item.unitPrice)}</span>
+                <span>
+                  {formatPrice(
+                    item.unitPrice
+                  )}
+                </span>
               </div>
 
               <div className="cart-item__actions">
@@ -458,10 +756,12 @@ function CartModal({
                   }
                   aria-label={`إنقاص كمية ${item.name}`}
                 >
-                  −
+                  -
                 </button>
 
-                <strong>{item.quantity}</strong>
+                <strong>
+                  {item.quantity}
+                </strong>
 
                 <button
                   type="button"
@@ -480,7 +780,9 @@ function CartModal({
               <button
                 type="button"
                 className="cart-item__remove"
-                onClick={() => onRemove(item.cartId)}
+                onClick={() =>
+                  onRemove(item.cartId)
+                }
               >
                 حذف المنتج
               </button>
@@ -491,54 +793,117 @@ function CartModal({
         <div className="cart-customer-form">
           <label>
             الاسم الكامل
+
             <input
               type="text"
               value={customerName}
-              onChange={(event) => setCustomerName(event.target.value)}
-              placeholder="مثال: أحمد بلحاج"
+              onChange={(event) =>
+                setCustomerName(
+                  event.target.value
+                )
+              }
+              placeholder="مثال: الاسم الكامل"
             />
           </label>
 
           <label>
-            رقم الهاتف
+            الهاتف / الواتساب
+
             <input
               type="tel"
               inputMode="tel"
               value={customerPhone}
-              onChange={(event) => setCustomerPhone(event.target.value)}
+              onChange={(event) =>
+                setCustomerPhone(
+                  event.target.value
+                )
+              }
               placeholder="0550000000"
             />
           </label>
 
-          <label>
-            الحي / العنوان
-            <input
-              type="text"
-              value={customerAddress}
-              onChange={(event) => setCustomerAddress(event.target.value)}
-              placeholder="مثال: حي النصر، العلمة"
-            />
-          </label>
+
+          <button
+            type="button"
+            className="cart-modal__gps"
+            onClick={handleGetCustomerLocation}
+            disabled={gpsLoading}
+          >
+            {gpsLoading
+              ? "جاري تحديد الموقع..."
+              : customerLatitude !== null &&
+                customerLongitude !== null
+              ? "✓ تم تحديد موقعك"
+              : "📍 تحديد موقعي عبر GPS"}
+          </button>
+{customerLatitude !== null &&
+  customerLongitude !== null && (
+    <div
+      className="customer-location-map"
+      style={{
+        marginTop: "12px",
+        width: "100%",
+        overflow: "hidden",
+        borderRadius: "16px",
+      }}
+    >
+      <MapContainer
+        key={`${customerLatitude}-${customerLongitude}`}
+        center={[customerLatitude, customerLongitude]}
+        zoom={16}
+        scrollWheelZoom={false}
+        style={{
+          height: "260px",
+          width: "100%",
+        }}
+      >
+        <TileLayer
+          attribution="&copy; OpenStreetMap contributors"
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <Marker
+          position={[customerLatitude, customerLongitude]}
+        />
+      </MapContainer>
+    </div>
+  )}
 
           {formError && (
-            <small className="cart-customer-form__error">{formError}</small>
+            <small className="cart-customer-form__error">
+              {formError}
+            </small>
           )}
         </div>
 
         <div className="cart-summary">
           <div>
-            <span>مجموع المنتجات</span>
-            <strong>{formatPrice(subtotal)}</strong>
+            <span>
+              مجموع المنتجات
+            </span>
+
+            <strong>
+              {formatPrice(subtotal)}
+            </strong>
           </div>
 
           <div>
-            <span>مصاريف التوصيل</span>
-            <strong>{formatPrice(delivery)}</strong>
+            <span>
+              مصاريف التوصيل
+            </span>
+
+            <strong>
+              {formatPrice(delivery)}
+            </strong>
           </div>
 
           <div className="cart-summary__total">
-            <span>المجموع النهائي</span>
-            <strong>{formatPrice(total)}</strong>
+            <span>
+              المجموع النهائي
+            </span>
+
+            <strong>
+              {formatPrice(total)}
+            </strong>
           </div>
         </div>
 
@@ -549,9 +914,12 @@ function CartModal({
             if (
               customerName.trim().length < 2 ||
               customerPhone.trim().length < 8 ||
-              customerAddress.trim().length < 3
+              customerLatitude === null ||
+              customerLongitude === null
             ) {
-              setFormError("يرجى تعبئة الاسم ورقم الهاتف والعنوان كاملين.");
+              setFormError(
+                "يرجى إدخال الاسم ورقم الهاتف وتحديد موقعك عبر GPS."
+              );
               return;
             }
 
@@ -561,63 +929,339 @@ function CartModal({
               subtotal,
               delivery,
               total,
-              customerName: customerName.trim(),
-              customerPhone: customerPhone.trim(),
-              customerAddress: customerAddress.trim(),
+              customerName:
+                customerName.trim(),
+              customerPhone:
+                customerPhone.trim(),
+              customerAddress:
+                `GPS: ${customerLatitude}, ${customerLongitude}`,
+              customerLatitude,
+              customerLongitude,
             });
           }}
         >
-          تأكيد الطلب عبر واتساب
+          طلب
         </button>
       </div>
     </div>
   );
 }
 
+/* =========================================================
+   MAIN APP
+   ========================================================= */
+
 export default function App() {
   const [cart, setCart] = useState([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [ownerPhoneInput, setOwnerPhoneInput] = useState("");
-  const [ownerPasswordInput, setOwnerPasswordInput] = useState("");
-  const [ownerOrdersToday, setOwnerOrdersToday] = useState(null);
-  const [ownerCheckLoading, setOwnerCheckLoading] = useState(false);
-  const [ownerCheckError, setOwnerCheckError] = useState("");
-  const [ownerBoxDismissed, setOwnerBoxDismissed] = useState(false);
 
-  const [customer, setCustomer] = useState(() => {
+  const [customerOrderTracking, setCustomerOrderTracking] = useState(null);
+  const [customerOrderTrackingId, setCustomerOrderTrackingId] = useState("");
+  const [customerOrderTrackingToken, setCustomerOrderTrackingToken] = useState("");
+  const [customerOrderTrackingError, setCustomerOrderTrackingError] = useState("");
+  const [customerOrderSuccess, setCustomerOrderSuccess] = useState(false);
+  const [customerOrderResult, setCustomerOrderResult] = useState(null);
+  const [isCartOpen, setIsCartOpen] =
+    useState(false);
+
+  const [selectedItem, setSelectedItem] =
+    useState(null);
+
+  const [
+    productAvailability,
+    setProductAvailability,
+  ] = useState({});
+
+  async function loadProductAvailability() {
+    if (!supabase) return;
+
     try {
-      const saved = localStorage.getItem("chapati_customer");
-      return saved ? JSON.parse(saved) : null;
+      const { data, error } = await supabase
+        .from("product_availability")
+        .select("product_id, available");
+
+      if (error) {
+        console.error(
+          "product_availability:",
+          error
+        );
+        return;
+      }
+
+      const map = {};
+
+      (data || []).forEach((item) => {
+        map[item.product_id] = Boolean(
+          item.available
+        );
+      });
+
+      setProductAvailability(map);
+    } catch (requestError) {
+      console.error(
+        "loadProductAvailability:",
+        requestError
+      );
+    }
+  }
+
+  useEffect(() => {
+    loadProductAvailability();
+
+    function refreshAvailability() {
+      loadProductAvailability();
+    }
+
+    window.addEventListener(
+      "focus",
+      refreshAvailability
+    );
+
+    document.addEventListener(
+      "visibilitychange",
+      refreshAvailability
+    );
+
+    return () => {
+      window.removeEventListener(
+        "focus",
+        refreshAvailability
+      );
+
+      document.removeEventListener(
+        "visibilitychange",
+        refreshAvailability
+      );
+    };
+  }, []);
+
+  /* =====================================================
+     UNIFIED AUTH
+     OWNER + DRIVER + CUSTOMER
+     ===================================================== */
+
+
+
+  /* =====================================================
+     UNIFIED AUTH
+     OWNER + DRIVER
+     ===================================================== */
+
+  const [
+    isAuthLoginOpen,
+    setIsAuthLoginOpen,
+  ] = useState(false);
+
+  const [
+    authPhoneInput,
+    setAuthPhoneInput,
+  ] = useState("");
+
+  const [
+    authPasswordInput,
+    setAuthPasswordInput,
+  ] = useState("");
+
+  const [
+    authLoginLoading,
+    setAuthLoginLoading,
+  ] = useState(false);
+
+  const [
+    authLoginError,
+    setAuthLoginError,
+  ] = useState("");
+
+  const [
+    customerRegisterForm,
+    setCustomerRegisterForm,
+  ] = useState({
+    name: "",
+    phone: "",
+    password: "",
+  });
+
+  const [
+    customerRegisterLoading,
+    setCustomerRegisterLoading,
+  ] = useState(false);
+
+  const [
+    customerRegisterError,
+    setCustomerRegisterError,
+  ] = useState("");
+
+  const [authUser, setAuthUser] =
+    useState(() => {
+      try {
+        const saved =
+          localStorage.getItem(
+            "chapati_auth_user"
+          );
+
+        if (!saved) return null;
+
+        const parsed =
+          JSON.parse(saved);
+
+        return parsed?.role === "owner" ||
+          parsed?.role === "driver" ||
+          parsed?.role === "customer"
+          ? parsed
+          : null;
+      } catch {
+        return null;
+      }
+    });
+
+  const [authStep, setAuthStep] =
+    useState(() => {
+      try {
+        const saved =
+          localStorage.getItem(
+            "chapati_auth_user"
+          );
+
+        if (!saved) return "login";
+
+        const parsed =
+          JSON.parse(saved);
+
+        if (
+          parsed?.role === "owner" ||
+          parsed?.role === "driver"
+        ) {
+          return "dashboard";
+        }
+
+        if (parsed?.role === "customer") {
+          return "customer";
+        }
+
+        return "login";
+      } catch {
+        return "login";
+      }
+    });
+
+  const [
+    authSessionToken,
+    setAuthSessionToken,
+  ] = useState(() => {
+    try {
+      const savedUser =
+        localStorage.getItem(
+          "chapati_auth_user"
+        );
+
+      if (savedUser) {
+        const parsed =
+          JSON.parse(savedUser);
+
+        if (parsed?.sessionToken) {
+          return parsed.sessionToken;
+        }
+      }
+
+      return (
+        localStorage.getItem(
+          "chapati_owner_session"
+        ) ||
+        localStorage.getItem(
+          "chapati_customer_session"
+        ) ||
+        localStorage.getItem(
+          "chapati_driver_session_token"
+        ) ||
+        localStorage.getItem(
+          "chapati_driver_session"
+        ) ||
+        ""
+      );
     } catch {
-      return null;
+      return "";
     }
   });
-  const [isCustomerLoginOpen, setIsCustomerLoginOpen] = useState(false);
-  const [customerPhoneInput, setCustomerPhoneInput] = useState("");
-  const [customerNameInput, setCustomerNameInput] = useState("");
-  const [customerLoginLoading, setCustomerLoginLoading] = useState(false);
-  const [customerLoginError, setCustomerLoginError] = useState("");
+
+  const [authPhoneError, setAuthPhoneError] =
+    useState("");
+
+  const [
+    authSavePhoneLoading,
+    setAuthSavePhoneLoading,
+  ] = useState(false);
+
+  const [
+    ownerOrdersToday,
+    setOwnerOrdersToday,
+  ] = useState(null);
+
+  const [
+    ownerOrdersLoading,
+    setOwnerOrdersLoading,
+  ] = useState(false);
+
+  const [
+    customerNotifications,
+    setCustomerNotifications,
+  ] = useState([]);
+
+  const [
+    customerNotificationsLoading,
+    setCustomerNotificationsLoading,
+  ] = useState(false);
+  const [
+    customerPoints,
+    setCustomerPoints,
+  ] = useState(0);
+
+  const [
+    customerPointsLoading,
+    setCustomerPointsLoading,
+  ] = useState(false);
+
+  /* =====================================================
+     CLICK SOUND
+     ===================================================== */
 
   useEffect(() => {
     function handleClickSound(event) {
-      const target = event.target.closest("button, a");
+      const target =
+        event.target.closest("button, a");
+
       if (target) {
         playClickSound();
       }
     }
 
-    document.addEventListener("click", handleClickSound, true);
+    document.addEventListener(
+      "click",
+      handleClickSound,
+      true
+    );
+
     return () =>
-      document.removeEventListener("click", handleClickSound, true);
+      document.removeEventListener(
+        "click",
+        handleClickSound,
+        true
+      );
   }, []);
 
+  /* =====================================================
+     SWIPE SOUND
+     ===================================================== */
+
   useEffect(() => {
-    const strips = document.querySelectorAll(".menu-group__strip");
+    const strips =
+      document.querySelectorAll(
+        ".menu-group__strip"
+      );
+
     let lastPlay = 0;
 
     function handleSwipeSound() {
       const now = Date.now();
+
       if (now - lastPlay > 220) {
         lastPlay = now;
         playSwipeSound();
@@ -625,119 +1269,581 @@ export default function App() {
     }
 
     strips.forEach((strip) =>
-      strip.addEventListener("scroll", handleSwipeSound, { passive: true })
+      strip.addEventListener(
+        "scroll",
+        handleSwipeSound,
+        { passive: true }
+      )
     );
 
     return () =>
       strips.forEach((strip) =>
-        strip.removeEventListener("scroll", handleSwipeSound)
+        strip.removeEventListener(
+          "scroll",
+          handleSwipeSound
+        )
       );
-  }, []);
+  }, [authUser]);
 
-  async function checkOwnerPhone(event) {
-    event.preventDefault();
-    setOwnerCheckError("");
+  /* =====================================================
+     UNIFIED AUTH FUNCTIONS
+     ===================================================== */
+  async function loadCustomerPoints(token) {
+    if (!supabase || !token) return;
 
-    const normalizedOwnerPhone = ownerPhoneInput.trim().replace(/^0/, "213");
+    setCustomerPointsLoading(true);
+
+    try {
+      const { data, error } = await supabase.rpc(
+        "customer_get_points",
+        { p_session_token: token }
+      );
+
+      if (error || !data?.success) {
+        console.error("customer_get_points:", error || data?.error);
+        return;
+      }
+
+      setCustomerPoints(Number(data.points || 0));
+    } catch (requestError) {
+      console.error("customer_get_points:", requestError);
+    } finally {
+      setCustomerPointsLoading(false);
+    }
+  }
+
+
+  async function loadCustomerNotifications(token) {
+    if (!supabase || !token) return;
+
+    setCustomerNotificationsLoading(true);
+
+    try {
+      const { data, error } =
+        await supabase.rpc(
+          "customer_get_notifications",
+          {
+            p_session_token: token,
+          }
+        );
+
+      if (error || !data?.success) {
+        console.error(
+          "customer_get_notifications:",
+          error || data?.error
+        );
+        return;
+      }
+
+      setCustomerNotifications(
+        Array.isArray(data.notifications)
+          ? data.notifications
+          : []
+      );
+    } catch (requestError) {
+      console.error(
+        "customer_get_notifications:",
+        requestError
+      );
+    } finally {
+      setCustomerNotificationsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (
+      authUser?.role === "customer" &&
+      authUser?.sessionToken
+    ) {
+      loadCustomerNotifications(
+        authUser.sessionToken
+      );
+      loadCustomerPoints(
+        authUser.sessionToken
+      );
+    } else {
+      setCustomerNotifications([]);
+    }
+  }, [
+    authUser?.id,
+    authUser?.role,
+    authUser?.sessionToken,
+  ]);
+
+  function openAuthLogin() {
+    setAuthLoginError("");
+    setAuthPhoneError("");
+    setAuthPhoneInput("");
+    setAuthPasswordInput("");
 
     if (
-      normalizedOwnerPhone !== storeConfig.whatsappNumber ||
-      ownerPasswordInput !== storeConfig.ownerPassword
+      authUser?.role === "owner" ||
+      authUser?.role === "driver"
     ) {
-      setOwnerCheckError("رقم الهاتف أو كلمة السر غير صحيحة.");
+      setAuthStep("dashboard");
+    } else if (authUser?.role === "customer") {
+      setAuthStep("customer");
+    } else {
+      setAuthStep("choice");
+    }
+
+    setIsAuthLoginOpen(true);
+
+    if (authUser?.role === "owner") {
+      loadOwnerOrders();
+    }
+  }
+
+  async function loginUnified(event) {
+    event.preventDefault();
+
+    setAuthLoginError("");
+
+    const identifier = authPhoneInput.trim();
+    const password = authPasswordInput;
+
+    const looksLikeDriverName =
+      /[^\d\s()+-]/.test(identifier);
+
+    if (!identifier) {
+      setAuthLoginError(
+        "يرجى إدخال رقم الهاتف أو اسم المستخدم."
+      );
+      return;
+    }
+
+    if (!password) {
+      setAuthLoginError(
+        "يرجى إدخال كلمة المرور."
+      );
       return;
     }
 
     if (!supabase) {
-      setOwnerCheckError("\u062e\u062f\u0645\u0629 \u0627\u0644\u0637\u0644\u0628\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629 \u062d\u0627\u0644\u064a\u0627\u064b.");
+      setAuthLoginError(
+        "خدمة تسجيل الدخول غير متوفرة حاليًا."
+      );
       return;
     }
 
-    setOwnerCheckLoading(true);
+    setAuthLoginLoading(true);
 
-    const { data, error } = await supabase.rpc("get_orders_today_count");
+    const { data, error } = await supabase.rpc(
+      "unified_login",
+      {
+        p_identifier: identifier,
+        p_password: password,
+      }
+    );
 
-    setOwnerCheckLoading(false);
+    setAuthLoginLoading(false);
+
+    if (error) {
+      console.error("Unified login RPC error:", error);
+      setAuthLoginError(
+        "حدث خطأ أثناء تسجيل الدخول."
+      );
+      return;
+    }
+
+    const result = data || {};
+
+    console.log("=== UNIFIED LOGIN RESULT ===", result);
+    console.log("=== ACCOUNT NAME ===", result?.driver?.name || result?.owner?.name || result?.customer?.name || result?.user?.name);
+    console.log("=== DRIVER NAME ===", result?.driver_name);
+
+
+    if (!result.success) {
+      setAuthLoginError(
+        result.error === "invalid_credentials"
+          ? looksLikeDriverName
+            ? "\u0627\u0633\u0645 \u0627\u0644\u0633\u0627\u0626\u0642 \u0623\u0648 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063a\u064a\u0631 \u0635\u062d\u064a\u062d\u0629."
+            : "\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062a\u0641 \u0623\u0648 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063a\u064a\u0631 \u0635\u062d\u064a\u062d\u0629."
+          : result.message ||
+            "\u0628\u064a\u0627\u0646\u0627\u062a \u0627\u0644\u062f\u062e\u0648\u0644 \u063a\u064a\u0631 \u0635\u062d\u064a\u062d\u0629."
+      );
+      return;
+    }
+
+    if (
+      result.role !== "owner" &&
+      result.role !== "driver" &&
+      result.role !== "customer"
+    ) {
+      setAuthLoginError(
+        "نوع الحساب غير معروف."
+      );
+      return;
+    }
+
+    const account =
+      result.owner ||
+      result.driver ||
+      result.customer ||
+      result.user ||
+      {};
+
+    const id =
+      account.id ||
+      result.owner_id ||
+      result.driver_id ||
+      result.customer_id ||
+      result.user_id ||
+      result.id ||
+      null;
+
+    const name =
+      account.name ||
+      result.owner_name ||
+      result.driver_name ||
+      result.customer_name ||
+      result.user_name ||
+      result.name ||
+      "";
+
+    const returnedPhone =
+      account.phone ||
+      result.owner_phone ||
+      result.driver_phone ||
+      result.customer_phone ||
+      result.phone ||
+      identifier;
+
+    const sessionToken = result.session_token || "";
+
+    if (!sessionToken) {
+      setAuthLoginError(
+        "تعذر إنشاء جلسة الدخول."
+      );
+      return;
+    }
+
+    const loggedUser = {
+      id,
+      name,
+      phone: returnedPhone,
+      role: result.role,
+      sessionToken,
+    };
+
+    setAuthUser(loggedUser);
+
+    localStorage.setItem(
+      "chapati_auth_user",
+      JSON.stringify(loggedUser)
+    );
+
+    setAuthSessionToken(sessionToken);
+
+    if (result.role === "owner") {
+      localStorage.setItem(
+        "chapati_owner_session",
+        sessionToken
+      );
+
+      localStorage.removeItem(
+        "chapati_driver_session"
+      );
+
+      localStorage.removeItem(
+        "chapati_driver_session_token"
+      );
+    }
+
+    if (result.role === "driver") {
+      localStorage.setItem(
+        "chapati_driver_session",
+        sessionToken
+      );
+
+      localStorage.setItem(
+        "chapati_driver_session_token",
+        sessionToken
+      );
+
+      localStorage.removeItem(
+        "chapati_owner_session"
+      );
+    }
+
+    if (result.role === "customer") {
+      localStorage.setItem(
+        "chapati_customer_session",
+        sessionToken
+      );
+
+      localStorage.removeItem(
+        "chapati_owner_session"
+      );
+
+      localStorage.removeItem(
+        "chapati_driver_session"
+      );
+
+      localStorage.removeItem(
+        "chapati_driver_session_token"
+      );
+    }
+
+    setAuthPhoneInput("");
+    setAuthPasswordInput("");
+    setAuthLoginError("");
+
+    if (result.role === "customer") {
+      setAuthStep("customer");
+    } else {
+      setAuthStep("dashboard");
+    }
+  }
+
+
+  async function registerCustomer(event) {
+    event.preventDefault();
+
+    setCustomerRegisterError("");
+
+    const name =
+      customerRegisterForm.name.trim();
+
+    const phone =
+      customerRegisterForm.phone.trim();
+
+    const password =
+      customerRegisterForm.password;
+
+    if (!name) {
+      setCustomerRegisterError(
+        "\u064a\u0631\u062c\u0649 \u0625\u062f\u062e\u0627\u0644 \u0627\u0644\u0627\u0633\u0645."
+      );
+      return;
+    }
+
+    if (!/^0[5-7][0-9]{8}$/.test(phone)) {
+      setCustomerRegisterError(
+        "\u064a\u0631\u062c\u0649 \u0625\u062f\u062e\u0627\u0644 \u0631\u0642\u0645 \u0647\u0627\u062a\u0641 \u062c\u0632\u0627\u0626\u0631\u064a \u0635\u062d\u064a\u062d \u0645\u062b\u0644 0550000000."
+      );
+      return;
+    }
+
+    if (!password) {
+      setCustomerRegisterError(
+        "\u064a\u0631\u062c\u0649 \u0625\u062f\u062e\u0627\u0644 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631."
+      );
+      return;
+    }
+
+    if (!supabase) {
+      setCustomerRegisterError(
+        "\u062e\u062f\u0645\u0629 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062d\u0633\u0627\u0628 \u063a\u064a\u0631 \u0645\u062a\u0648\u0641\u0631\u0629 \u062d\u0627\u0644\u064a\u064b\u0627."
+      );
+      return;
+    }
+
+    setCustomerRegisterLoading(true);
+
+    const {
+      data,
+      error: rpcError,
+    } = await supabase.rpc(
+      "customer_register",
+      {
+        p_phone: phone,
+        p_name: name,
+        p_password: password,
+      }
+    );
+
+    setCustomerRegisterLoading(false);
+
+    if (rpcError) {
+      console.error(
+        "customer_register:",
+        rpcError
+      );
+
+      setCustomerRegisterError(
+        "\u062a\u0639\u0630\u0631 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062d\u0633\u0627\u0628."
+      );
+
+      return;
+    }
+
+    if (data?.success === false) {
+      setCustomerRegisterError(
+        data.message ||
+          data.error ||
+          "\u062a\u0639\u0630\u0631 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062d\u0633\u0627\u0628."
+      );
+
+      return;
+    }
+
+    setCustomerRegisterForm({
+      name: "",
+      phone: "",
+      password: "",
+    });
+
+    setAuthPhoneInput(phone);
+    setAuthPasswordInput("");
+    setAuthLoginError("");
+    setAuthStep("login");
+  }
+  async function loadOwnerOrders() {
+    if (!supabase) return;
+
+    setOwnerOrdersLoading(true);
+
+    const { data, error } =
+      await supabase.rpc(
+        "get_orders_today_count"
+      );
+
+    setOwnerOrdersLoading(false);
 
     if (error || !data?.success) {
-      setOwnerCheckError("يرجى إدخال رقم الهاتف.");
+      console.error(
+        "Owner orders count error:",
+        error
+      );
+
+      setOwnerOrdersToday(null);
+
       return;
     }
 
     setOwnerOrdersToday(data.count);
   }
 
-  async function loginCustomer(event) {
+  async function saveAuthDriverPhone(event) {
     event.preventDefault();
-    setCustomerLoginError("");
 
-    const phone = customerPhoneInput.trim();
-    const name = customerNameInput.trim();
+    setAuthPhoneError("");
 
-    if (phone.length < 8) {
-      setCustomerLoginError("???? ???? ??? ???? ????.");
-      return;
-    }
+    const phone =
+      authPhoneInput.trim();
 
-    if (name.length < 2) {
-      setCustomerLoginError("???? ???? تسجيل الدخول.");
-      return;
-    }
-
-    if (!supabase) {
-      setCustomerLoginError("???? ??????? ??? ????? ?????.");
-      return;
-    }
-
-    setCustomerLoginLoading(true);
-
-    const { data, error } = await supabase.rpc("customer_login", {
-      p_phone: phone,
-      p_name: name,
-    });
-
-    setCustomerLoginLoading(false);
-
-    if (error || !data?.success) {
-      setCustomerLoginError(
-        data?.message || "???? تسجيل الدخول. ???? ??? ???."
+    if (!/^0[5-7][0-9]{8}$/.test(phone)) {
+      setAuthPhoneError(
+        "يرجى إدخال رقم هاتف جزائري صحيح مثل 0550000000."
       );
       return;
     }
 
-    const loggedCustomer = {
-      id: data.customer_id,
-      phone: data.phone,
-      name: data.name,
-    };
-
-    setCustomer(loggedCustomer);
-    localStorage.setItem(
-      "chapati_customer",
-      JSON.stringify(loggedCustomer)
-    );
-
-    setCustomerPhoneInput("");
-    setCustomerNameInput("");
-    setCustomerLoginError("");
-    setIsCustomerLoginOpen(false);
-  }
-
-  function logoutCustomer() {
-    setCustomer(null);
-    localStorage.removeItem("chapati_customer");
-  }
-
-  function openCustomerLogin() {
-    setCustomerLoginError("");
-
-    if (customer) {
-      setCustomerPhoneInput(customer.phone || "");
-      setCustomerNameInput(customer.name || "");
+    if (
+      !authUser?.id ||
+      authUser.role !== "driver"
+    ) {
+      setAuthPhoneError(
+        "بيانات السائق غير صالحة. يرجى تسجيل الدخول مجددًا."
+      );
+      return;
     }
 
-    setIsCustomerLoginOpen(true);
+    if (!authSessionToken) {
+      setAuthPhoneError(
+        "جلسة الدخول غير صالحة. يرجى تسجيل الدخول مجددًا."
+      );
+      return;
+    }
+
+    if (!supabase) {
+      setAuthPhoneError(
+        "خدمة تحديث الهاتف غير متوفرة حاليًا."
+      );
+      return;
+    }
+
+    setAuthSavePhoneLoading(true);
+
+    const { data, error } =
+      await supabase.rpc(
+        "set_driver_phone",
+        {
+          p_driver_id: authUser.id,
+          p_session_token:
+            authSessionToken,
+          p_phone: phone,
+        }
+      );
+
+    setAuthSavePhoneLoading(false);
+
+    if (error) {
+      console.error(
+        "set_driver_phone RPC error:",
+        error
+      );
+
+      setAuthPhoneError(
+        "تعذر حفظ رقم الهاتف."
+      );
+
+      return;
+    }
+
+    if (!data?.success) {
+      setAuthPhoneError(
+        data?.message ||
+          "تعذر حفظ رقم الهاتف."
+      );
+
+      return;
+    }
+
+    const updatedUser = {
+      ...authUser,
+      phone,
+    };
+
+    setAuthUser(updatedUser);
+
+    localStorage.setItem(
+      "chapati_auth_user",
+      JSON.stringify(updatedUser)
+    );
+
+    setAuthPhoneInput("");
+    setAuthPhoneError("");
+    setAuthStep("dashboard");
   }
+
+  function logoutUnified() {
+    setAuthUser(null);
+    setAuthStep("login");
+    setAuthSessionToken("");
+
+    localStorage.removeItem(
+      "chapati_auth_user"
+    );
+
+    localStorage.removeItem(
+      "chapati_owner_session"
+    );
+
+    localStorage.removeItem(
+      "chapati_driver_session"
+    );
+
+    localStorage.removeItem(
+      "chapati_driver_session_token"
+    );
+
+    localStorage.removeItem(
+      "chapati_customer_session"
+    );
+
+    setAuthPhoneInput("");
+    setAuthPasswordInput("");
+    setAuthLoginError("");
+    setAuthPhoneError("");
+    setOwnerOrdersToday(null);
+    setIsAuthLoginOpen(false);
+  }
+
+  /* =====================================================
+     CART
+     ===================================================== */
 
   function addConfiguredItem(item) {
     setCart((currentCart) => [
@@ -749,8 +1855,10 @@ export default function App() {
           `${item.id}-${Date.now()}-${Math.random()
             .toString(36)
             .slice(2, 8)}`,
-        unitPrice: item.unitPrice ?? item.price,
-        quantity: item.quantity ?? 1,
+        unitPrice:
+          item.unitPrice ?? item.price,
+        quantity:
+          item.quantity ?? 1,
       },
     ]);
 
@@ -758,20 +1866,38 @@ export default function App() {
     setIsCartOpen(true);
   }
 
-  function addToCart(item, quantity = 1) {
-    if (item.customization) {
-      setSelectedItem({ ...item, initialQuantity: quantity });
+  function addToCart(
+    item,
+    quantity = 1
+  ) {
+    if (productAvailability[item.id] === false) {
       return;
     }
 
-    addConfiguredItem({ ...item, quantity });
+    if (item.customization) {
+      setSelectedItem({
+        ...item,
+        initialQuantity: quantity,
+      });
+
+      return;
+    }
+
+    addConfiguredItem({
+      ...item,
+      quantity,
+    });
   }
 
-  function updateQuantity(cartId, quantity) {
+  function updateQuantity(
+    cartId,
+    quantity
+  ) {
     if (quantity <= 0) {
       setCart((currentCart) =>
         currentCart.filter(
-          (item) => item.cartId !== cartId
+          (item) =>
+            item.cartId !== cartId
         )
       );
 
@@ -793,7 +1919,8 @@ export default function App() {
   function removeFromCart(cartId) {
     setCart((currentCart) =>
       currentCart.filter(
-        (item) => item.cartId !== cartId
+        (item) =>
+          item.cartId !== cartId
       )
     );
   }
@@ -805,95 +1932,451 @@ export default function App() {
     customerName,
     customerPhone,
     customerAddress,
+    customerLatitude,
+    customerLongitude,
   }) {
     if (cart.length === 0) return;
+
+    setCustomerOrderSuccess(false);
+    setCustomerOrderResult(null);
+    setCustomerOrderTrackingError("");
+
+    if (!supabase) {
+      setCustomerOrderResult("error");
+      setCustomerOrderTrackingError(
+        "\u062e\u062f\u0645\u0629 \u0627\u0644\u0637\u0644\u0628\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629 \u062d\u0627\u0644\u064a\u0627."
+      );
+      return;
+    }
 
     const orderItems = cart.map((item) => ({
       id: item.id,
       name: item.name,
-      quantity: item.quantity,
+            type: item.type,
+quantity: item.quantity,
       unitPrice: item.unitPrice,
       options: item.options || [],
     }));
 
-    if (supabase) {
-      await supabase.rpc("create_order", {
-        p_customer_name: customerName,
-        p_customer_phone: customerPhone,
-        p_customer_address: customerAddress,
-        p_items: orderItems,
-        p_total: total,
-        p_delivery_fee: delivery,
-        p_customer_id: customer?.id || null,
-      });
+    const { data, error: rpcError } =
+      await supabase.rpc(
+        "create_order",
+        {
+          p_customer_name: customerName,
+          p_customer_phone: customerPhone,
+          p_customer_address: customerAddress,
+          p_items: orderItems,
+          p_total: total,
+          p_delivery_fee: delivery,
+          p_customer_id:
+            authUser?.role === "customer"
+              ? authUser.id
+              : null,
+          p_customer_latitude:
+            customerLatitude,
+          p_customer_longitude:
+            customerLongitude,
+        }
+      );
+
+    if (rpcError || !data?.success) {
+      console.error(
+        "create_order error:",
+        rpcError || data
+      );
+
+      setCustomerOrderSuccess(false);
+      setCustomerOrderResult("error");
+
+      const messages = {
+        invalid_name:
+          "\u0627\u0644\u0627\u0633\u0645 \u063a\u064a\u0631 \u0635\u062d\u064a\u062d.",
+        invalid_phone:
+          "\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062a\u0641 \u063a\u064a\u0631 \u0635\u062d\u064a\u062d.",
+        invalid_address:
+          "\u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u063a\u064a\u0631 \u0635\u062d\u064a\u062d.",
+        invalid_customer:
+          "\u062d\u0633\u0627\u0628 \u0627\u0644\u0632\u0628\u0648\u0646 \u063a\u064a\u0631 \u0635\u062d\u064a\u062d.",
+        driver_not_found:
+          "\u0627\u0644\u0644\u064a\u0641\u0631\u0648\u0631 \u063a\u064a\u0631 \u0645\u0648\u062c\u0648\u062f \u0641\u064a \u0627\u0644\u0646\u0638\u0627\u0645.",
+      };
+
+      setCustomerOrderTrackingError(
+        messages[data?.error] ||
+          rpcError?.message ||
+          "\u062a\u0639\u0630\u0631 \u062d\u0641\u0638 \u0627\u0644\u0637\u0644\u0628."
+      );
+
+      return;
     }
 
-    const lines = cart.map((item, index) => {
-      const options =
-        item.options?.length > 0
-          ? `\n   الإضافات: ${item.options
-              .map((option) => option.name)
-              .join(" + ")}`
-          : "";
+    const nextOrder = {
+      id: data.order_id,
+      tracking_token: data.tracking_token,
+      customer_name: customerName,
+      customer_phone: customerPhone,
+      customer_address: customerAddress,
+      customer_latitude: customerLatitude,
+      customer_longitude: customerLongitude,
+      items: orderItems,
+      total,
+      delivery_fee: delivery,
+      status: data.status || "assigned",
+    };
 
-      return `${index + 1}. ${item.name} × ${
-        item.quantity
-      } — ${formatPrice(
-        item.unitPrice * item.quantity
-      )}${options}`;
-    });
-
-    const message = [
-      `الاسم: ${customerName}`,
-      `الهاتف: ${customerPhone}`,
-      `العنوان: ${customerAddress}`,
-      "",
-      `السلام عليكم، أرغب في طلب من ${storeConfig.name}`,
-      "",
-      "تفاصيل الطلب:",
-      ...lines,
-      "",
-      `مجموع المنتجات: ${formatPrice(subtotal)}`,
-      `مصاريف التوصيل: ${formatPrice(delivery)}`,
-      `المجموع النهائي: ${formatPrice(total)}`,
-      "",
-      "يرجى تأكيد الطلب.",
-    ].join("\n");
-
-    window.open(
-      waLink(message),
-      "_blank",
-      "noopener,noreferrer"
+    setCustomerOrderTracking(nextOrder);
+    setCustomerOrderTrackingId(
+      data.order_id || ""
     );
+    setCustomerOrderTrackingToken(
+      data.tracking_token || ""
+    );
+    setCustomerOrderTrackingError("");
+
+    setCustomerOrderSuccess(true);
+    setCustomerOrderResult("success");
+
+    localStorage.setItem(
+      "chapati_active_order",
+      JSON.stringify({
+        order_id: data.order_id,
+        tracking_token: data.tracking_token,
+      })
+    );
+
+    setCart([]);
+    setIsCartOpen(false);
+  }
+  async function loadCustomerOrderTracking(orderId, trackingToken) {
+    if (!supabase || !orderId || !trackingToken) return;
+
+    const { data, error: rpcError } = await supabase.rpc(
+      "customer_get_order_status",
+      {
+        p_order_id: orderId,
+        p_tracking_token: trackingToken,
+      }
+    );
+
+    if (rpcError || !data?.success) {
+      console.error(
+        "customer_get_order_status error:",
+        rpcError || data
+      );
+
+      setCustomerOrderTrackingError(
+        "تعذر تحديث حالة الطلب."
+      );
+
+      return;
+    }
+
+    setCustomerOrderTracking((current) => ({
+      ...(current || {}),
+      ...(data.order || {}),
+    }));
+
+    setCustomerOrderTrackingError("");
   }
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(
+        "chapati_active_order"
+      );
+
+      if (!saved) return;
+
+      const parsed = JSON.parse(saved);
+
+      if (
+        parsed?.order_id &&
+        parsed?.tracking_token
+      ) {
+        setCustomerOrderTrackingId(
+          parsed.order_id
+        );
+
+        setCustomerOrderTrackingToken(
+          parsed.tracking_token
+        );
+
+        loadCustomerOrderTracking(
+          parsed.order_id,
+          parsed.tracking_token
+        );
+      }
+    } catch (error) {
+      console.error(
+        "active order restore error:",
+        error
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    if (
+      !customerOrderTrackingId ||
+      !customerOrderTrackingToken
+    ) {
+      return undefined;
+    }
+
+    loadCustomerOrderTracking(
+      customerOrderTrackingId,
+      customerOrderTrackingToken
+    );
+
+    if (
+      customerOrderTracking?.status ===
+      "delivered"
+    ) {
+      return undefined;
+    }
+
+    const timer = window.setInterval(() => {
+      loadCustomerOrderTracking(
+        customerOrderTrackingId,
+        customerOrderTrackingToken
+      );
+    }, 5000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [
+    customerOrderTrackingId,
+    customerOrderTrackingToken,
+    customerOrderTracking?.status,
+  ]);
   const totalItems = cart.reduce(
-    (total, item) => total + item.quantity,
+    (total, item) =>
+      total + item.quantity,
     0
   );
 
   const subtotal = cart.reduce(
     (total, item) =>
-      total + item.unitPrice * item.quantity,
+      total +
+      item.unitPrice *
+        item.quantity,
     0
   );
 
+  /* =====================================================
+     ROLE CHECK
+     ===================================================== */
+
+  const isStaff =
+    authUser?.role === "owner" ||
+    authUser?.role === "driver";
+
+  /* =====================================================
+     RENDER
+     ===================================================== */
+
   return (
     <>
-      <div className="fire-background" aria-hidden="true">
-        <div className="fire-embers">
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-      </div>
-
       <style>{`
+        /* =================================================
+           GLOW 2 PRODUCT EFFECT
+           ================================================= */
+        /* OWNER DASHBOARD MODAL SCROLL FIX */
+        .driver-login-backdrop:has(.owner-page) {
+          align-items: flex-start;
+          overflow-y: auto;
+          padding: 16px;
+        }
+
+        .driver-login-modal:has(.owner-page) {
+          width: min(1400px, 100%);
+          max-width: 1400px;
+          height: calc(100vh - 32px);
+          max-height: calc(100vh - 32px);
+          overflow: hidden;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .driver-login-modal:has(.owner-page) .driver-login__header {
+          flex: 0 0 auto;
+        }
+
+        .driver-login-modal:has(.owner-page) .owner-page {
+          box-sizing: border-box;
+          flex: 1 1 auto;
+          width: 100%;
+          height: auto;
+          min-height: 0;
+          max-height: none;
+          overflow-y: auto;
+          overflow-x: hidden;
+          padding-bottom: 48px;
+          overscroll-behavior: contain;
+        }
+
+        .glow2-product {
+          position: relative;
+          isolation: isolate;
+          overflow: visible;
+          transform: translateZ(0);
+        }
+
+        .glow2-product__light {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: 110%;
+          height: 110%;
+          transform: translate(-50%, -50%);
+          border-radius: 50%;
+          background:
+            radial-gradient(
+              circle,
+              rgba(255,255,255,1) 0%,
+              rgba(255,230,150,.95) 12%,
+              rgba(255,170,55,.75) 28%,
+              rgba(255,100,20,.38) 48%,
+              rgba(255,60,0,0) 72%
+            );
+          filter: blur(25px);
+          opacity: .9;
+          z-index: -2;
+          pointer-events: none;
+          animation: glow2Pulse 2.2s ease-in-out infinite;
+        }
+
+        .glow2-product::before {
+          content: "";
+          position: absolute;
+          inset: -18%;
+          border-radius: 50%;
+          background:
+            radial-gradient(
+              circle,
+              rgba(255,255,255,.65) 0%,
+              rgba(255,180,70,.45) 25%,
+              rgba(255,80,20,.18) 48%,
+              transparent 72%
+            );
+          filter: blur(30px);
+          opacity: .85;
+          z-index: -3;
+          pointer-events: none;
+          animation: glow2Aura 3s ease-in-out infinite;
+        }
+
+        .glow2-product::after {
+          content: "";
+          position: absolute;
+          top: -15%;
+          left: -80%;
+          width: 45%;
+          height: 130%;
+          transform: rotate(20deg);
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255,255,255,0) 20%,
+            rgba(255,255,255,.85) 50%,
+            rgba(255,255,255,0) 80%,
+            transparent 100%
+          );
+          filter: blur(8px);
+          opacity: 0;
+          z-index: 4;
+          pointer-events: none;
+          animation: glow2Shine 3.5s ease-in-out infinite;
+        }
+
+        .glow2-product .story-card__img {
+          position: relative;
+          z-index: 2;
+          transform: translateZ(0);
+          filter:
+            drop-shadow(0 12px 18px rgba(0,0,0,.20))
+            drop-shadow(0 0 10px rgba(255,255,255,.35))
+            drop-shadow(0 0 28px rgba(255,145,45,.55));
+          transition:
+            transform .35s ease,
+            filter .35s ease;
+        }
+
+        .story-card:hover .glow2-product .story-card__img {
+          transform: scale(1.06) translateY(-5px);
+          filter:
+            drop-shadow(0 18px 24px rgba(0,0,0,.22))
+            drop-shadow(0 0 16px rgba(255,255,255,.65))
+            drop-shadow(0 0 38px rgba(255,145,45,.85));
+        }
+
+        @keyframes glow2Pulse {
+          0%, 100% {
+            transform: translate(-50%, -50%) scale(.88);
+            opacity: .65;
+          }
+
+          50% {
+            transform: translate(-50%, -50%) scale(1.12);
+            opacity: 1;
+          }
+        }
+
+        @keyframes glow2Aura {
+          0%, 100% {
+            transform: scale(.92);
+            opacity: .55;
+          }
+
+          50% {
+            transform: scale(1.08);
+            opacity: .95;
+          }
+        }
+
+        @keyframes glow2Shine {
+          0% {
+            left: -80%;
+            opacity: 0;
+          }
+
+          15% {
+            opacity: .9;
+          }
+
+          45% {
+            left: 135%;
+            opacity: .9;
+          }
+
+          55%, 100% {
+            left: 135%;
+            opacity: 0;
+          }
+        }
+
+
+          50% {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.08);
+          }
+        }
+
+        /* =================================================
+           STAFF MODE
+           ================================================= */
+
+        body.staff-mode .hero,
+        body.staff-mode .story,
+        body.staff-mode .site-footer {
+          display: none;
+        }
+
+        /* =================================================
+           CART
+           ================================================= */
+
         .cart-floating {
           position: fixed;
           left: 18px;
@@ -1106,6 +2589,9 @@ export default function App() {
           cursor: pointer;
         }
 
+        /* =================================================
+           PRODUCT OPTIONS
+           ================================================= */
 
         .product-options-backdrop {
           position: fixed;
@@ -1221,33 +2707,9 @@ export default function App() {
           cursor: pointer;
         }
 
-        @media (max-width: 480px) {
-          .product-options__choices {
-            grid-template-columns: 1fr;
-          }
-
-          .product-options__footer {
-            flex-direction: column;
-            align-items: stretch;
-          }
-
-          .product-options__footer strong {
-            text-align: center;
-          }
-        }
-
-        @media (min-width: 700px) {
-          .cart-floating {
-            left: auto;
-            right: 24px;
-            width: 330px;
-          }
-
-          .cart-modal-backdrop,
-          .product-options-backdrop {
-            align-items: center;
-          }
-        }
+        /* =================================================
+           HEADER
+           ================================================= */
 
         .site-header__actions {
           display: flex;
@@ -1272,7 +2734,12 @@ export default function App() {
           background: rgba(255,255,255,.14);
         }
 
-        .customer-login-backdrop {
+        /* =================================================
+           LOGIN
+           ================================================= */
+
+        .customer-login-backdrop,
+        .driver-login-backdrop {
           position: fixed;
           inset: 0;
           z-index: 4000;
@@ -1283,7 +2750,8 @@ export default function App() {
           background: rgba(0,0,0,.6);
         }
 
-        .customer-login-modal {
+        .customer-login-modal,
+        .driver-login-modal {
           width: min(100%, 440px);
           direction: rtl;
           border-radius: 24px;
@@ -1293,7 +2761,12 @@ export default function App() {
           padding: 22px;
         }
 
-        .customer-login__header {
+        .driver-login-modal {
+          width: min(100%, 460px);
+        }
+
+        .customer-login__header,
+        .driver-login__header {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
@@ -1301,31 +2774,36 @@ export default function App() {
           margin-bottom: 20px;
         }
 
-        .customer-login__header h2 {
+        .customer-login__header h2,
+        .driver-login__header h2 {
           margin: 0;
           font-size: 22px;
         }
 
-        .customer-login__header p {
+        .customer-login__header p,
+        .driver-login__header p {
           margin: 6px 0 0;
           color: #777;
           font-size: 13px;
           line-height: 1.6;
         }
 
-        .customer-login__form {
+        .customer-login__form,
+        .driver-login__form {
           display: grid;
           gap: 12px;
         }
 
-        .customer-login__form label {
+        .customer-login__form label,
+        .driver-login__form label {
           display: grid;
           gap: 7px;
           font-weight: 700;
           font-size: 14px;
         }
 
-        .customer-login__form input {
+        .customer-login__form input,
+        .driver-login__form input {
           width: 100%;
           min-height: 48px;
           box-sizing: border-box;
@@ -1338,12 +2816,14 @@ export default function App() {
           outline: none;
         }
 
-        .customer-login__form input:focus {
+        .customer-login__form input:focus,
+        .driver-login__form input:focus {
           border-color: #e8622c;
           box-shadow: 0 0 0 3px rgba(232,98,44,.12);
         }
 
-        .customer-login__error {
+        .customer-login__error,
+        .driver-login__error {
           display: block;
           padding: 10px 12px;
           border-radius: 11px;
@@ -1353,7 +2833,47 @@ export default function App() {
           line-height: 1.5;
         }
 
-        .customer-login__submit {
+        .auth-login__link {
+          width: 100%;
+          min-height: 44px;
+          margin-top: 2px;
+          border: 1px solid #ddd;
+          border-radius: 13px;
+          background: #fff;
+          color: #e8622c;
+          font: inherit;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .auth-login__link:hover {
+          background: #fff7f2;
+          border-color: #e8622c;
+        }
+
+        .driver-login__success {
+          padding: 12px;
+          border-radius: 12px;
+          background: #eefaf2;
+          color: #176c38;
+          line-height: 1.7;
+          font-size: 14px;
+        }
+
+        .driver-login__info {
+          margin-bottom: 14px;
+          padding: 12px;
+          border-radius: 12px;
+          background: #f7f7f7;
+          line-height: 1.8;
+          font-size: 14px;
+        }
+
+        .driver-login__info strong {
+          color: #e8622c;
+        }
+
+        .driver-login__submit {
           width: 100%;
           min-height: 50px;
           margin-top: 4px;
@@ -1366,12 +2886,12 @@ export default function App() {
           cursor: pointer;
         }
 
-        .customer-login__submit:disabled {
+        .driver-login__submit:disabled {
           opacity: .65;
           cursor: wait;
         }
 
-        .customer-login__logout {
+        .driver-login__logout {
           width: 100%;
           min-height: 46px;
           margin-top: 10px;
@@ -1384,64 +2904,43 @@ export default function App() {
           cursor: pointer;
         }
 
-        @media (max-width: 520px) {
-          .site-header__actions {
-            gap: 6px;
-          }
-
-          .site-header__customer {
-            max-width: 130px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-        }
-
-        .owner-check {
-          max-width: 420px;
-          margin: 10px auto 0;
-          padding: 10px 14px;
-        }
-
-        .owner-check__form {
-          display: flex;
-          gap: 8px;
-          align-items: center;
-        }
-
-        .owner-check__form input {
-          flex: 1;
-          min-height: 40px;
-          border-radius: 10px;
-          border: 1px solid #ddd;
-          padding: 0 12px;
-          font: inherit;
-        }
-
-        .owner-check__form button {
-          min-height: 40px;
-          border-radius: 10px;
-          border: 0;
-          padding: 0 14px;
-          font: inherit;
-          cursor: pointer;
-        }
-
-        .owner-check__skip {
-          background: transparent;
-          color: #777;
-        }
-
-        .owner-check__result {
+        .driver-dashboard {
           text-align: center;
-          font-weight: 800;
-          padding: 8px;
         }
 
-        .owner-check__error {
-          display: block;
-          color: #a52323;
-          margin-top: 6px;
+        .driver-dashboard__icon {
+          width: 76px;
+          height: 76px;
+          display: grid;
+          place-items: center;
+          margin: 0 auto 14px;
+          border-radius: 50%;
+          background: #fff1e9;
+          font-size: 36px;
         }
+
+        .driver-dashboard h3 {
+          margin: 0;
+          font-size: 22px;
+        }
+
+        .driver-dashboard__phone {
+          margin: 8px 0 18px;
+          color: #666;
+        }
+
+        .driver-dashboard__status {
+          padding: 12px;
+          border-radius: 13px;
+          background: #eefaf2;
+          color: #176c38;
+          font-weight: 700;
+          margin-bottom: 14px;
+        }
+
+        /* =================================================
+           CUSTOMER FORM
+           ================================================= */
 
         .cart-customer-form {
           display: grid;
@@ -1467,7 +2966,195 @@ export default function App() {
         .cart-customer-form__error {
           color: #a52323;
         }
+
+        .customer-login__submit {
+          width: 100%;
+          min-height: 50px;
+          margin-top: 4px;
+          border: 0;
+          border-radius: 14px;
+          background: #e8622c;
+          color: #fff;
+          font: inherit;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .customer-login__logout {
+          width: 100%;
+          min-height: 46px;
+          margin-top: 10px;
+          border: 1px solid #ddd;
+          border-radius: 13px;
+          background: #fff;
+          color: #b8202c;
+          font: inherit;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        @media (max-width: 480px) {
+          .product-options__choices {
+            grid-template-columns: 1fr;
+          }
+
+          .product-options__footer {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .product-options__footer > strong {
+            text-align: center;
+          }
+        }
+
+        @media (max-width: 520px) {
+          .site-header__actions {
+            gap: 6px;
+          }
+
+          .site-header__customer {
+            max-width: 125px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 10px;
+          }
+        }
+
+        @media (min-width: 700px) {
+          .cart-floating {
+            left: auto;
+            right: 24px;
+            width: 330px;
+          }
+
+          .cart-modal-backdrop,
+          .product-options-backdrop {
+            align-items: center;
+          }
+        }
+        .customer-points-card {
+          display: grid;
+          gap: 7px;
+          margin: 14px 0;
+          padding: 13px;
+          border: 1px solid #eadfd7;
+          border-radius: 15px;
+          background: #fffaf7;
+        }
+
+        .customer-points-card__top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .customer-points-card__top span {
+          min-width: 42px;
+          min-height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          background: #e8622c;
+          color: #fff;
+          font-weight: 900;
+        }
+
+        .customer-points-card p,
+        .customer-points-card small {
+          margin: 0;
+          line-height: 1.6;
+        }
+
+        .customer-points-card small {
+          color: #777;
+          font-size: 11px;
+        }
+
+        .customer-notifications {
+          display: grid;
+          gap: 10px;
+          margin: 14px 0;
+          padding: 13px;
+          border: 1px solid #eadfd7;
+          border-radius: 15px;
+          background: #fffaf7;
+        }
+
+        .customer-notifications__header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .customer-notifications__header span {
+          min-width: 26px;
+          min-height: 26px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          background: #e8622c;
+          color: #fff;
+          font-size: 12px;
+          font-weight: 800;
+        }
+
+        .customer-notifications__list {
+          display: grid;
+          gap: 9px;
+          max-height: 260px;
+          overflow-y: auto;
+        }
+
+        .customer-notification {
+          padding: 12px;
+          border-radius: 12px;
+          background: #fff;
+          border: 1px solid #eee2da;
+        }
+
+        .customer-notification strong {
+          display: block;
+          margin-bottom: 6px;
+        }
+
+        .customer-notification p {
+          margin: 0;
+          white-space: pre-line;
+          line-height: 1.7;
+          font-size: 13px;
+        }
+
+        .customer-notification small {
+          display: block;
+          margin-top: 7px;
+          color: #888;
+          font-size: 11px;
+        }
+
+        .customer-notification__code {
+          margin-top: 9px;
+          padding: 9px 10px;
+          border-radius: 10px;
+          background: #fff3ea;
+          color: #9b4a24;
+        }
+
+        .customer-notifications__empty {
+          padding: 10px;
+          color: #777;
+          font-size: 13px;
+          text-align: center;
+        }
       `}</style>
+
+      {/* =====================================================
+          HEADER
+          ===================================================== */}
 
       <header className="site-header">
         <span className="site-header__name">
@@ -1475,296 +3162,665 @@ export default function App() {
         </span>
 
         <div className="site-header__actions">
-          {customer ? (
-            <button
-              type="button"
-              className="site-header__customer"
-              onClick={openCustomerLogin}
-            >
-              {customer.name}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="site-header__customer"
-              onClick={openCustomerLogin}
-            >
-              تسجيل الدخول
-            </button>
-          )}
+          <button
+            type="button"
+            className="site-header__customer"
+            onClick={openAuthLogin}
+          >
+            {authUser
+              ? `👤 ${authUser.name}`
+              : "تسجيل الدخول"}
+          </button>
 
           <button
             type="button"
             className="site-header__cta"
-            onClick={() => setIsCartOpen(true)}
-        >
-          السلة {totalItems > 0 && `(${totalItems})`}
-        </button>
+            onClick={() =>
+              setIsCartOpen(true)
+            }
+          >
+            السلة{" "}
+            {totalItems > 0 &&
+              `(${totalItems})`}
+          </button>
         </div>
       </header>
 
-      {!ownerBoxDismissed && (
-        <div className="owner-check">
-          {ownerOrdersToday === null ? (
-            <form className="owner-check__form" onSubmit={checkOwnerPhone}>
-              <input
-                type="tel"
-                inputMode="tel"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck="false"
-                value={ownerPhoneInput}
-                onChange={(event) => setOwnerPhoneInput(event.target.value)}
-                placeholder="رقم الهاتف (اختياري)"
-              />
+      {/* =====================================================
+          HERO
+          ===================================================== */}
 
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={ownerPasswordInput}
-                onChange={(event) => setOwnerPasswordInput(event.target.value)}
-                placeholder="كلمة السر"
-              />
+      {!isStaff && (
+        <>
+          <section className="hero">
+            <div
+              className="hero__pattern"
+              style={{
+                backgroundImage: `url(${heroImage})`,
+              }}
+              aria-hidden="true"
+            ></div>
 
-              <button type="submit" disabled={ownerCheckLoading}>
-                {ownerCheckLoading ? "..." : "دخول"}
-              </button>
+            <div
+              className="hero__overlay"
+              aria-hidden="true"
+            ></div>
+
+            <div className="hero__content">
+              <h1 className="hero__title">
+                <span className="hero__title-line hero__title-line--1 hero-glow-title">
+                  {storeConfig.name}
+                </span>
+              </h1>
+
+              <p className="hero__tagline balance chapati-caption hero-glow-tagline">
+                {storeConfig.tagline}
+              </p>
 
               <button
                 type="button"
-                className="owner-check__skip"
-                onClick={() => setOwnerBoxDismissed(true)}
+                className="hero__cta"
+                onClick={() =>
+                  document
+                    .getElementById(
+                      "chapati-normal"
+                    )
+                    ?.scrollIntoView({
+                      behavior: "smooth",
+                    })
+                }
               >
-                تخطي
+                ابدأ طلبك الآن
               </button>
-            </form>
-          ) : (
-            <div className="owner-check__result">
-              عدد الطلبات اليوم: <strong>{ownerOrdersToday}</strong>
             </div>
-          )}
 
-          {ownerCheckError && (
-            <small className="owner-check__error">{ownerCheckError}</small>
-          )}
-        </div>
+            <div
+              className="hero__tear"
+              aria-hidden="true"
+            ></div>
+          </section>
+        </>
       )}
 
-      <section className="hero">
-        <div
-          className="hero__pattern"
-          style={{
-            backgroundImage: `url(${heroImage})`,
-          }}
-          aria-hidden="true"
-        ></div>
+      {/* =====================================================
+          PRODUCTS
+          IMPORTANT:
+          OWNER + DRIVER DO NOT SEE PRODUCTS
+          CUSTOMER + VISITOR SEE PRODUCTS
+          ===================================================== */}
 
-        <div
-          className="hero__overlay"
-          aria-hidden="true"
-        ></div>
+      {!isStaff && (
+        <main className="menu">
+          {menuGroups.map((group) => (
+            <section
+              className="menu-group"
+              key={group.id}
+              id={group.id}
+            >
+              <h2 className="menu-group__title">
+                {group.title}
+              </h2>
 
-        <div className="hero__content">
-          <h1 className="hero__title">
-            <span className="hero__title-line hero__title-line--1">
-              {storeConfig.name}
-            </span>
-          </h1>
+              <div className="menu-group__strip">
+                {group.items.map(
+                  (item) => (
+                    <StoryCard
+                      item={item}
+                      key={item.id}
+                      onAdd={addToCart}
+                      available={
+                        productAvailability[item.id] !== false
+                      }
+                      allowQuantity={
+                        group.id !==
+                        "drinks"
+                      }
+                    />
+                  )
+                )}
+              </div>
+            </section>
+          ))}
+        </main>
+      )}
 
-          <p className="hero__tagline balance">
-            {storeConfig.tagline}
+      {/* =====================================================
+          STORY
+          ===================================================== */}
+
+      {!isStaff && (
+        <section className="story">
+          <p className="story__text balance">
+            يتم إعداد كل شباتي وملفوف عند
+            الطلب، باستخدام مكونات طازجة
+            وطهي متقن، حتى يصلك طلبك ساخناً
+            ولذيذاً.
           </p>
+        </section>
+      )}
+
+      {/* =====================================================
+          FOOTER
+          ===================================================== */}
+
+      {!isStaff && (
+        <footer
+          className="site-footer"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.65)), url(${import.meta.env.BASE_URL}videos/%D9%87.webp)`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <div className="site-footer__info">
+            <span>
+              {storeConfig.address}
+            </span>
+
+            <span
+              className="site-footer__dot"
+              aria-hidden="true"
+            ></span>
+
+            <span>
+              {storeConfig.hours}
+            </span>
+          </div>
 
           <button
             type="button"
-            className="hero__cta"
+            className="site-footer__cta"
             onClick={() =>
-              document
-                .getElementById("chapati-normal")
-                ?.scrollIntoView({
-                  behavior: "smooth",
-                })
+              setIsCartOpen(true)
             }
           >
-            ابدأ طلبك الآن
+            {cart.length > 0
+              ? "مراجعة الطلب"
+              : "فتح السلة"}
           </button>
-        </div>
+        </footer>
+      )}
 
+      {/* =====================================================
+          UNIFIED AUTH
+          OWNER + DRIVER
+          ===================================================== */}
+
+      {isAuthLoginOpen && (
         <div
-          className="hero__tear"
-          aria-hidden="true"
-        ></div>
-      </section>
-
-      <main className="menu">
-        <video
-          className="menu-fire-video"
-          src="/chapati-/videos/fire-loop.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-          aria-hidden="true"
-        ></video>
-        <div className="menu-fire-overlay" aria-hidden="true"></div>
-
-        {menuGroups.map((group) => (
-          <section
-            className="menu-group"
-            key={group.id}
-            id={group.id}
-          >
-            <h2 className="menu-group__title">
-              {group.title}
-            </h2>
-
-            <div className="menu-group__strip">
-              {group.items.map((item) => (
-                <StoryCard
-                  item={item}
-                  key={item.id}
-                  onAdd={addToCart}
-                  allowQuantity={group.id !== "drinks"}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
-      </main>
-
-      <section className="story">
-        <p className="story__text balance">
-          يتم إعداد كل شباتي وملفوف عند الطلب، باستخدام
-          مكونات طازجة وطهي متقن، حتى يصلك طلبك ساخناً
-          ولذيذاً.
-        </p>
-      </section>
-
-      <footer className="site-footer">
-        <div className="site-footer__info">
-          <span>{storeConfig.address}</span>
-
-          <span
-            className="site-footer__dot"
-            aria-hidden="true"
-          ></span>
-
-          <span>{storeConfig.hours}</span>
-        </div>
-
-        <button
-          type="button"
-          className="site-footer__cta"
-          onClick={() => setIsCartOpen(true)}
-        >
-          {cart.length > 0
-            ? "مراجعة الطلب"
-            : "فتح السلة"}
-        </button>
-      </footer>
-
-      {isCustomerLoginOpen && (
-        <div
-          className="customer-login-backdrop"
+          className="driver-login-backdrop"
           role="presentation"
-          onClick={() => setIsCustomerLoginOpen(false)}
+          onClick={() =>
+            setIsAuthLoginOpen(false)
+          }
         >
           <div
-            className="customer-login-modal"
+            className="driver-login-modal"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="customer-login-title"
-            onClick={(event) => event.stopPropagation()}
+            aria-labelledby="auth-login-title"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
           >
-            <div className="customer-login__header">
+            <div className="driver-login__header">
               <div>
-                <h2 id="customer-login-title">
-                  {customer
-                    ? "\u062d\u0633\u0627\u0628\u064a"
-                    : "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644"}
+                <h2 id="auth-login-title">
+                  {authStep === "dashboard"
+                    ? authUser?.role ===
+                      "owner"
+                      ? "مرحباً بك يا مالك المحل"
+                      : "مرحباً بك يا سائق"
+                    : authStep === "customer"
+                      ? "حسابي"
+                      : authStep === "phone"
+                        ? "أدخل رقم هاتفك"
+                        : authStep === "choice"
+                      ? "\u0627\u0644\u062d\u0633\u0627\u0628"
+                      : authStep === "register"
+                          ? "إنشاء حساب"
+                          : "🔐 تسجيل الدخول"}
                 </h2>
+
                 <p>
-                  {"\u0623\u062f\u062e\u0644 \u0627\u0633\u0645\u0643 \u0648\u0631\u0642\u0645 \u0647\u0627\u062a\u0641\u0643 \u0644\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644."}
+                  {authStep === "dashboard"
+                    ? "تم تسجيل دخولك بنجاح."
+                    : authStep === "customer"
+                      ? "يمكنك استخدام حسابك للطلبات."
+                      : authStep === "phone"
+                        ? "أدخل رقم هاتفك لإكمال إعداد الحساب."
+                        : authStep === "choice"
+                        ? "\u0627\u062e\u062a\u0631 \u0627\u0644\u0639\u0645\u0644\u064a\u0629 \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629."
+                        : authStep === "register"
+                          ? "أنشئ حساب الزبون للدخول لاحقًا."
+                          : "أدخل بيانات الدخول الخاصة بحسابك."}
                 </p>
               </div>
 
               <button
                 type="button"
                 className="cart-modal__close"
-                onClick={() => setIsCustomerLoginOpen(false)}
-                aria-label={"\u0625\u063a\u0644\u0627\u0642"}
+                onClick={() =>
+                  setIsAuthLoginOpen(
+                    false
+                  )
+                }
+                aria-label="إغلاق"
               >
-                {"\u00d7"}
+                ×
               </button>
             </div>
 
-            <form onSubmit={loginCustomer} className="customer-login__form">
-              <label>
-                {"\u0627\u0644\u0627\u0633\u0645"}
-                <input
-                  type="text"
-                  value={customerNameInput}
-                  onChange={(event) =>
-                    setCustomerNameInput(event.target.value)
-                  }
-                  placeholder={"\u0645\u062b\u0627\u0644: \u0623\u062d\u0645\u062f"}
-                  autoComplete="name"
-                />
-              </label>
+            {authStep === "choice" && (
+              <div className="driver-login__form">
+                <button
+                  type="button"
+                  className="driver-login__submit"
+                  onClick={() => {
+                    setAuthLoginError("");
+                    setAuthStep("login");
+                  }}
+                >
+                  {"\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644"}
+                </button>
 
-              <label>
-                {"\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062a\u0641"}
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  value={customerPhoneInput}
-                  onChange={(event) =>
-                    setCustomerPhoneInput(event.target.value)
-                  }
-                  placeholder="0550000000"
-                  autoComplete="tel"
-                />
-              </label>
+                <button
+                  type="button"
+                  className="driver-login__submit"
+                  onClick={() => {
+                    setCustomerRegisterError("");
+                    setCustomerRegisterForm({
+                      name: "",
+                      phone: "",
+                      password: "",
+                    });
+                    setAuthStep("register");
+                  }}
+                >
+                  {"\u0625\u0646\u0634\u0627\u0621 \u062d\u0633\u0627\u0628"}
+                </button>
+              </div>
+            )}
 
-              {customerLoginError && (
-                <small className="customer-login__error">
-                  {customerLoginError}
-                </small>
+            {}
+
+            {authStep === "login" && (
+              <form
+                className="driver-login__form"
+                onSubmit={loginUnified}
+              >
+                <label>
+                  {/[^\d\s()+-]/.test(
+                    authPhoneInput.trim()
+                  )
+                    ? "اسم السائق"
+                    : "رقم الهاتف"}
+
+                  <input
+                    type="text"
+                    inputMode={
+                      /[^\d\s()+-]/.test(
+                        authPhoneInput.trim()
+                      )
+                        ? "text"
+                        : "tel"
+                    }
+                    value={authPhoneInput}
+                    onChange={(event) =>
+                      setAuthPhoneInput(
+                        event.target.value
+                      )
+                    }
+                    placeholder="0550000000 أو اسم السائق"
+                    autoComplete="username"
+                    autoFocus
+                  />
+                </label>
+
+                <label>
+                  كلمة المرور
+
+                  <input
+                    type="password"
+                    value={authPasswordInput}
+                    onChange={(event) =>
+                      setAuthPasswordInput(
+                        event.target.value
+                      )
+                    }
+                    placeholder="كلمة المرور"
+                    autoComplete="current-password"
+                  />
+                </label>
+
+                {authLoginError && (
+                  <small className="driver-login__error">
+                    {authLoginError}
+                  </small>
+                )}
+
+                <button
+                  type="submit"
+                  className="driver-login__submit"
+                  disabled={
+                    authLoginLoading
+                  }
+                >
+                  {authLoginLoading
+                    ? "جارٍ تسجيل الدخول..."
+                    : "تسجيل الدخول"}
+                </button>
+
+                                
+              
+                <button
+                  type="button"
+                  className="auth-login__link"
+                  onClick={() => {
+                    setAuthLoginError("");
+                    setAuthStep("choice");
+                  }}
+                >
+                  {"\u0627\u0644\u0639\u0648\u062f\u0629 \u0644\u0644\u062e\u064a\u0627\u0631\u0627\u062a"}
+                </button></form>
+            )}
+
+            {/* DRIVER PHONE */}
+
+            {authStep === "phone" && (
+              <form
+                className="driver-login__form"
+                onSubmit={
+                  saveAuthDriverPhone
+                }
+              >
+                <div className="driver-login__info">
+                  مرحباً{" "}
+                  <strong>
+                    {authUser?.name ||
+                      "السائق"}
+                  </strong>
+                  <br />
+                  يرجى إدخال رقم هاتفك
+                  لاستكمال إعداد الحساب.
+                </div>
+
+                <label>
+                  رقم الهاتف
+
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    value={authPhoneInput}
+                    onChange={(event) =>
+                      setAuthPhoneInput(
+                        event.target.value
+                      )
+                    }
+                    placeholder="0550000000"
+                    autoComplete="tel"
+                    autoFocus
+                  />
+                </label>
+
+                {authPhoneError && (
+                  <small className="driver-login__error">
+                    {authPhoneError}
+                  </small>
+                )}
+
+                <button
+                  type="submit"
+                  className="driver-login__submit"
+                  disabled={
+                    authSavePhoneLoading
+                  }
+                >
+                  {authSavePhoneLoading
+                    ? "جارٍ حفظ الرقم..."
+                    : "حفظ رقم الهاتف"}
+                </button>
+              </form>
+            )}
+
+            {/* CUSTOMER REGISTER */}
+
+            {authStep === "register" && (
+              <form
+                className="driver-login__form"
+                onSubmit={registerCustomer}
+              >
+                <label>
+                  الاسم
+
+                  <input
+                    type="text"
+                    autoComplete="name"
+                    value={
+                      customerRegisterForm.name
+                    }
+                    onChange={(event) =>
+                      setCustomerRegisterForm({
+                        ...customerRegisterForm,
+                        name: event.target.value,
+                      })
+                    }
+                    placeholder="الاسم الكامل"
+                    required
+                  />
+                </label>
+
+                <label>
+                  رقم الهاتف
+
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    value={
+                      customerRegisterForm.phone
+                    }
+                    onChange={(event) =>
+                      setCustomerRegisterForm({
+                        ...customerRegisterForm,
+                        phone: event.target.value,
+                      })
+                    }
+                    placeholder="0550000000"
+                    required
+                  />
+                </label>
+
+                <label>
+                  كلمة المرور
+
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={
+                      customerRegisterForm.password
+                    }
+                    onChange={(event) =>
+                      setCustomerRegisterForm({
+                        ...customerRegisterForm,
+                        password:
+                          event.target.value,
+                      })
+                    }
+                    placeholder="كلمة المرور"
+                    required
+                  />
+                </label>
+
+                {customerRegisterError && (
+                  <small className="driver-login__error">
+                    {customerRegisterError}
+                  </small>
+                )}
+
+                <button
+                  type="submit"
+                  className="driver-login__submit"
+                  disabled={
+                    customerRegisterLoading
+                  }
+                >
+                  {customerRegisterLoading
+                    ? "جارٍ إنشاء الحساب..."
+                    : "إنشاء حساب"}
+                </button>
+
+                <button
+                  type="button"
+                  className="auth-login__link"
+                  onClick={() => {
+                    setCustomerRegisterError("");
+                    setAuthStep("choice");
+                  }}
+                >
+                  العودة إلى تسجيل الدخول
+                </button>
+              </form>
+            )}
+            {/* CUSTOMER ACCOUNT */}
+
+            {authStep === "customer" &&
+              authUser?.role === "customer" && (
+                <div className="driver-login__form">
+                  <div className="driver-login__info">
+                    مرحباً{" "}
+                    <strong>
+                      {authUser.name || "الزبون"}
+                    </strong>
+                    <br />
+                    رقم الهاتف:{" "}
+                    {authUser.phone || "غير مسجل"}
+                  </div>
+                  <div className="customer-points-card">
+                    <div className="customer-points-card__top">
+                      <strong>
+                        {customerPointsLoading
+                          ? "..."
+                          : "\u2B50 " + customerPoints + " \u0646\u062c\u0645\u0629"}
+                      </strong>
+
+                      <span>
+                        {"10 \u0646\u062c\u0645\u0627\u062a = 50 \u062f\u062c"}
+                      </span>
+                    </div>
+
+                    <p>
+                      {"\u0627\u0644\u0646\u062c\u0648\u0645 \u062a\u064f\u0633\u062a\u0639\u0645\u0644 \u0643\u062e\u0635\u0645 \u0645\u0646 \u0633\u0639\u0631 \u0627\u0644\u062a\u0648\u0635\u064a\u0644 \u0641\u0642\u0637."}
+                    </p>
+
+                    <small>
+                      {"\u0623\u0642\u0635\u0649 \u0627\u0643\u062a\u0633\u0627\u0628: 30 \u0646\u062c\u0645\u0629 \u0641\u064a \u0627\u0644\u0623\u0633\u0628\u0648\u0639."}
+                    </small>
+                  </div>
+                  <div
+                    className="customer-notifications"
+                    aria-live="polite"
+                  >
+                    <div className="customer-notifications__header">
+                      <strong>
+                        {"\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062a"}
+                      </strong>
+
+                      <span>
+                        {customerNotifications.length}
+                      </span>
+                    </div>
+
+                    {customerNotificationsLoading ? (
+                      <div className="customer-notifications__empty">
+                        {"\u062c\u0627\u0631\u064d \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062a..."}
+                      </div>
+                    ) : customerNotifications.length === 0 ? (
+                      <div className="customer-notifications__empty">
+                        {"\u0644\u0627 \u062a\u0648\u062c\u062f \u0625\u0634\u0639\u0627\u0631\u0627\u062a \u062d\u0627\u0644\u064a\u064b\u0627."}
+                      </div>
+                    ) : (
+                      <div className="customer-notifications__list">
+                        {customerNotifications.map(
+                          (notification) => (
+                            <article
+                              className="customer-notification"
+                              key={notification.id}
+                            >
+                              <strong>
+                                {notification.title}
+                              </strong>
+
+                              <p>
+                                {notification.message}
+                              </p>
+
+                              {notification.promo_code && (
+                                <div className="customer-notification__code">
+                                  {"\u0643\u0648\u062f Promo: "}
+                                  <strong>
+                                    {notification.promo_code}
+                                  </strong>
+                                </div>
+                              )}
+
+                              <small>
+                                {new Date(
+                                  notification.created_at
+                                ).toLocaleString(
+                                  "fr-DZ"
+                                )}
+                              </small>
+                            </article>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+
+                  <button
+                    type="button"
+                    className="driver-login__submit"
+                    onClick={logoutUnified}
+                  >
+                    تسجيل الخروج
+                  </button>
+                </div>
               )}
 
-              <button
-                type="submit"
-                className="customer-login__submit"
-                disabled={customerLoginLoading}
-              >
-                {customerLoginLoading
-                  ? "\u062c\u0627\u0631\u064a \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644..."
-                  : "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644"}
-              </button>
-            </form>
+            {/* DASHBOARD */}
 
-            {customer && (
-              <button
-                type="button"
-                className="customer-login__logout"
-                onClick={() => {
-                  logoutCustomer();
-                  setIsCustomerLoginOpen(false);
-                }}
-              >
-                {"\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062e\u0631\u0648\u062c"}
-              </button>
-            )}
+            {authStep === "dashboard" &&
+              authUser?.role === "owner" && (
+                <OwnerDashboard
+                  sessionToken={authUser.sessionToken}
+                  onLogout={logoutUnified}
+                />
+              )}
+
+            {authStep === "dashboard" &&
+              authUser?.role === "driver" && (
+                <DriverDashboard
+                  onLogout={logoutUnified}
+                />
+              )}
           </div>
         </div>
       )}
+
+      {/* =====================================================
+          FLOATING CART
+          ===================================================== */}
 
       {cart.length > 0 && (
         <button
           type="button"
           className="cart-floating"
-          onClick={() => setIsCartOpen(true)}
+          onClick={() =>
+            setIsCartOpen(true)
+          }
           aria-label="فتح سلة الطلب"
         >
           <span className="cart-floating__info">
@@ -1773,8 +3829,13 @@ export default function App() {
             </span>
 
             <span className="cart-floating__text">
-              <strong>سلة الطلب</strong>
-              <small>اضغط لمراجعة طلبك</small>
+              <strong>
+                سلة الطلب
+              </strong>
+
+              <small>
+                اضغط لمراجعة طلبك
+              </small>
             </span>
           </span>
 
@@ -1784,20 +3845,182 @@ export default function App() {
         </button>
       )}
 
-      {selectedItem && (
+      {/* =====================================================
+          PRODUCT OPTIONS
+          ===================================================== */}
+
+      {customerOrderResult === "error" && (
+        <div
+          style={{
+            width: "min(92vw, 620px)",
+            margin: "18px auto",
+            padding: "16px 18px",
+            borderRadius: "16px",
+            background: "#fff1f1",
+            border: "1px solid #f0b7b7",
+            color: "#b42318",
+            boxShadow: "0 8px 24px rgba(0,0,0,.07)",
+            direction: "rtl",
+            textAlign: "center",
+            fontWeight: 900,
+          }}
+        >
+          {"\u0644\u0645 \u064A\u062A\u0645 \u062A\u0623\u0643\u064A\u062F \u0627\u0644\u0637\u0644\u0628 \u274C"}
+          {customerOrderTrackingError && (
+            <div
+              style={{
+                marginTop: "8px",
+                fontSize: ".9rem",
+                fontWeight: 700,
+              }}
+            >
+              {customerOrderTrackingError}
+            </div>
+          )}
+        </div>
+      )}      {customerOrderSuccess && (
+        <div
+          style={{
+            width: "min(92vw, 620px)",
+            margin: "18px auto",
+            padding: "16px 18px",
+            borderRadius: "16px",
+            background: "#eefaf2",
+            border: "1px solid #b7e2c6",
+            color: "#176c38",
+            boxShadow: "0 8px 24px rgba(0,0,0,.07)",
+            direction: "rtl",
+            textAlign: "center",
+            fontWeight: 900,
+            fontSize: "1.05rem",
+          }}
+        >
+          "\u062A\u0645 \u062A\u0623\u0643\u064A\u062F \u0637\u0644\u0628\u0643 \u0628\u0646\u062C\u0627\u062D \u2705"
+        </div>
+      )}      {authUser?.role === "customer" && customerOrderTracking && (
+  <div
+    style={{
+      width: "min(92vw, 620px)",
+      margin: "18px auto",
+      padding: "18px",
+      borderRadius: "18px",
+      background: "#fff",
+      border: "1px solid #eadfd7",
+      boxShadow: "0 10px 28px rgba(0,0,0,.08)",
+      direction: "rtl",
+    }}
+  >
+    <div
+      style={{
+        fontWeight: 900,
+        fontSize: "1.2rem",
+        marginBottom: "8px",
+      }}
+    >
+      تتبع طلبك 🚚
+    </div>
+
+    <div
+      style={{
+        padding: "12px 14px",
+        borderRadius: "12px",
+        background: "#fff5ed",
+        marginBottom: "10px",
+        fontWeight: 800,
+      }}
+    >
+      حالة الطلب:{" "}
+      {customerOrderTracking.status === "assigned"
+        ? "تم تعيين الليفروور"
+        : customerOrderTracking.status === "picked_up"
+          ? "استلم الليفروور الطلب"
+          : customerOrderTracking.status === "delivering"
+            ? "في الطريق"
+            : customerOrderTracking.status === "delivered"
+              ? "تم توصيل طلبك بنجاح ✅"
+              : "طلب جديد"}
+    </div>
+
+    {Array.isArray(customerOrderTracking.items) &&
+      customerOrderTracking.items.length > 0 && (
+        <div
+          style={{
+            fontSize: ".95rem",
+            color: "#555",
+            lineHeight: 1.8,
+            marginBottom: "10px",
+          }}
+        >
+          <strong>الطلب:</strong>{" "}
+          {Array.from(
+            new Set(
+              customerOrderTracking.items
+                .map((item) => item?.name)
+                .filter(Boolean)
+            )
+          ).join("، ")}
+        </div>
+      )}
+
+    {!customerOrderSuccess && customerOrderTrackingError && (
+      <div
+        style={{
+          marginBottom: "10px",
+          padding: "10px",
+          borderRadius: "10px",
+          background: "#ffe8e8",
+          color: "#b42318",
+          fontWeight: 900,
+          textAlign: "center",
+        }}
+      >
+        لم يتم تأكيد الطلب ❌
+      </div>
+    )}
+
+    {customerOrderTrackingError && (
+      <div
+        style={{
+          marginTop: "10px",
+          padding: "10px",
+          borderRadius: "10px",
+          background: "#ffe8e8",
+          color: "#b42318",
+          fontWeight: 700,
+        }}
+      >
+        {customerOrderTrackingError}
+      </div>
+    )}
+  </div>
+)}      {selectedItem && (
         <ProductOptionsModal
           item={selectedItem}
-          onClose={() => setSelectedItem(null)}
+          onClose={() =>
+            setSelectedItem(null)
+          }
           onConfirm={addConfiguredItem}
         />
       )}
 
+      {/* =====================================================
+          CART
+          ===================================================== */}
+
       {isCartOpen && (
         <CartModal
           cart={cart}
-          customer={customer}
-          onClose={() => setIsCartOpen(false)}
-          onUpdateQuantity={updateQuantity}
+          customer={
+      authUser?.role === "customer"
+        ? authUser
+        : null
+    }
+          onClose={() =>
+            setIsCartOpen(false)
+          }
+          onUpdateQuantity={
+            updateQuantity
+          }
           onRemove={removeFromCart}
           onCheckout={checkoutOrder}
         />
@@ -1805,6 +4028,14 @@ export default function App() {
     </>
   );
 }
+
+
+
+
+
+
+
+
 
 
 

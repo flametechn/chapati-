@@ -301,8 +301,8 @@ export const menuGroups = [
 ];
 
 export const sauces = [
-  { id: "with-sauce", name: "بالصلصة", price: 0 },
-  { id: "without-sauce", name: "بدون صلصة", price: 0 },
+  { id: "mayonnaise", name: "\u0645\u0627\u064a\u0648\u0646\u064a\u0632", price: 0 },
+  { id: "harissa", name: "\u0647\u0631\u064a\u0633\u0629", price: 0 },
 ];
 
 export const deliveryZones = [

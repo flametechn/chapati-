@@ -469,3 +469,19 @@
     border-radius: 20px;
   }
 }
+
+/* Scroll الصفحة كاملة */
+.driver-page {
+  height: 100vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* Scroll مستقل لقائمة الطلبات */
+.driver-orders {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-left: 4px;
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
