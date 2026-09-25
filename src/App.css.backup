@@ -1,0 +1,49 @@
+﻿
+/* =========================================================
+   MOBILE PRODUCT IMAGE FIX
+   Same image shape as Desktop
+   Mobile only - Desktop unchanged
+   ========================================================= */
+
+@media (max-width: 767px) {
+  .story-card__figure.glow2-product {
+    width: 120px !important;
+    height: 120px !important;
+    min-width: 120px !important;
+    min-height: 120px !important;
+    max-width: 120px !important;
+    max-height: 120px !important;
+    flex: 0 0 120px !important;
+    aspect-ratio: 1 / 1;
+  }
+
+  .story-card__figure.glow2-product .story-card__img {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    border-radius: 50% !important;
+  }
+
+  .story-card:hover .glow2-product .story-card__img {
+    transform: none !important;
+  }
+
+  .glow2-product .story-card__img {
+    transform: none !important;
+  }
+
+  .glow2-product__light {
+    width: 110%;
+    height: 110%;
+  }
+
+  .glow2-product::before {
+    inset: -18%;
+  }
+}
+
+

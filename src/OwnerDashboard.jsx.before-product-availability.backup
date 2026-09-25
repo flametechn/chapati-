@@ -1,0 +1,782 @@
+﻿import { useEffect, useMemo, useState } from "react";
+import { supabase } from "./supabase.js";
+import "./OwnerDashboard.css";
+
+const SESSION_KEY = "chapati_owner_session";
+
+const STATUS_LABELS = {
+  pending: "طلب جديد",
+  assigned: "تم تعيين السائق",
+  picked_up: "استلم السائق الطلب",
+  delivering: "في الطريق",
+  delivered: "تم التوصيل",
+};
+
+const STATUS_CLASS = {
+  pending: "pending",
+  assigned: "assigned",
+  picked_up: "picked-up",
+  delivering: "delivering",
+  delivered: "delivered",
+};
+
+function formatPrice(value) {
+  return `${Number(value || 0).toLocaleString("fr-DZ")} دج`;
+}
+
+function formatDate(value) {
+  if (!value) return "";
+
+  return new Date(value).toLocaleString("ar-DZ", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function getItemName(item) {
+  if (!item || typeof item !== "object") return "منتج";
+
+  return (
+    item.name ||
+    item.title ||
+    item.product_name ||
+    item.productName ||
+    "منتج"
+  );
+}
+
+function getItemQuantity(item) {
+  if (!item || typeof item !== "object") return 1;
+  return Number(item.quantity || item.qty || 1);
+}
+
+export default function OwnerDashboard() {
+  const [sessionToken, setSessionToken] = useState(
+    () => localStorage.getItem(SESSION_KEY) || ""
+  );
+
+  const [owner, setOwner] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [drivers, setDrivers] = useState([]);
+
+  const [loginForm, setLoginForm] = useState({
+    phone: "",
+    password: "",
+  });
+
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [driverSelections, setDriverSelections] = useState({});
+
+  const [stats, setStats] = useState({
+    today_orders: 0,
+    today_sales: 0,
+    today_delivery_fees: 0,
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (sessionToken) {
+      loadDashboard(sessionToken);
+    }
+  }, []);
+
+  async function loadDashboard(token = sessionToken) {
+    if (!token) return;
+
+    setDashboardLoading(true);
+    setError("");
+
+    const { data, error: rpcError } = await supabase.rpc(
+      "owner_get_dashboard",
+      {
+        p_session_token: token,
+      }
+    );
+
+    setDashboardLoading(false);
+
+    if (rpcError || !data?.success) {
+      localStorage.removeItem(SESSION_KEY);
+      setSessionToken("");
+      setOwner(null);
+      setOrders([]);
+      setDrivers([]);
+
+      setStats({
+        today_orders: 0,
+        today_sales: 0,
+        today_delivery_fees: 0,
+      });
+
+      if (rpcError) {
+        setError("تعذر تحميل لوحة صاحب المحل.");
+      }
+
+      return;
+    }
+
+    setOwner(data.owner || null);
+
+    setOrders(Array.isArray(data.orders) ? data.orders : []);
+    setDrivers(Array.isArray(data.drivers) ? data.drivers : []);
+
+    setStats({
+      today_orders: Number(data.stats?.today_orders || 0),
+      today_sales: Number(data.stats?.today_sales || 0),
+      today_delivery_fees: Number(
+        data.stats?.today_delivery_fees || 0
+      ),
+    });
+  }
+
+  async function handleLogin(event) {
+    event.preventDefault();
+
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    const { data, error: rpcError } = await supabase.rpc(
+      "unified_login",
+      {
+        p_identifier: loginForm.phone.trim(),
+        p_password: loginForm.password,
+      }
+    );
+
+    setLoading(false);
+
+    if (rpcError || !data?.success || data.role !== "owner") {
+      setError(
+        data?.error === "invalid_credentials"
+          ? "رقم الهاتف أو كلمة المرور غير صحيحة."
+          : "تعذر تسجيل الدخول."
+      );
+      return;
+    }
+
+    const token = data.session_token;
+
+    if (!token) {
+      setError("لم يتم إنشاء جلسة تسجيل الدخول.");
+      return;
+    }
+
+    localStorage.setItem(SESSION_KEY, token);
+
+    setSessionToken(token);
+    setOwner(data.owner || null);
+
+    setLoginForm({
+      phone: "",
+      password: "",
+    });
+
+    await loadDashboard(token);
+  }
+
+  async function handleLogout() {
+    const token = sessionToken;
+
+    if (token) {
+      await supabase.rpc("owner_logout", {
+        p_session_token: token,
+      });
+    }
+
+    localStorage.removeItem(SESSION_KEY);
+
+    setSessionToken("");
+    setOwner(null);
+    setOrders([]);
+    setDrivers([]);
+    setSelectedOrder(null);
+    setDriverSelections({});
+    setMessage("");
+    setError("");
+  }
+
+  async function assignDriver(order) {
+    const driverId = driverSelections[order.id];
+
+    if (!driverId) {
+      setError("اختر السائق أولاً.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    const { data, error: rpcError } = await supabase.rpc(
+      "owner_assign_order",
+      {
+        p_owner_session_token: sessionToken,
+        p_order_id: order.id,
+        p_driver_id: driverId,
+      }
+    );
+
+    setLoading(false);
+
+    if (rpcError || !data?.success) {
+      const errorMessages = {
+        invalid_or_expired_session: "انتهت جلسة صاحب المحل.",
+        driver_not_found: "السائق غير موجود.",
+        order_not_found: "الطلب غير موجود.",
+        order_already_delivered:
+          "هذا الطلب تم توصيله بالفعل.",
+      };
+
+      setError(
+        errorMessages[data?.error] ||
+          "تعذر تعيين الطلب للسائق."
+      );
+
+      return;
+    }
+
+    setMessage("تم تعيين الطلب للسائق بنجاح.");
+
+    await loadDashboard();
+  }
+
+  const currentOrders = useMemo(
+    () =>
+      orders.filter(
+        (order) => order.status !== "delivered"
+      ),
+    [orders]
+  );
+
+  const deliveredOrders = useMemo(
+    () =>
+      orders.filter(
+        (order) => order.status === "delivered"
+      ),
+    [orders]
+  );
+
+  const pendingOrders = useMemo(
+    () =>
+      orders.filter(
+        (order) =>
+          order.status === "pending" ||
+          order.status === "assigned"
+      ),
+    [orders]
+  );
+
+  if (!sessionToken || !owner) {
+    return (
+      <main className="owner-page" dir="rtl">
+        <section className="owner-login">
+          <div className="owner-login__brand">
+            <span className="owner-login__icon">🏪</span>
+
+            <div>
+              <span className="owner-eyebrow">
+                إدارة المحل
+              </span>
+
+              <h1>لوحة صاحب المحل</h1>
+
+              <p>
+                تسجيل الدخول لإدارة الطلبات والتوصيل
+              </p>
+            </div>
+          </div>
+
+          <form
+            className="owner-login__form"
+            onSubmit={handleLogin}
+          >
+            <label>
+              رقم الهاتف
+
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={loginForm.phone}
+                onChange={(event) =>
+                  setLoginForm({
+                    ...loginForm,
+                    phone: event.target.value,
+                  })
+                }
+                placeholder="0550000000"
+                required
+              />
+            </label>
+
+            <label>
+              كلمة المرور
+
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={loginForm.password}
+                onChange={(event) =>
+                  setLoginForm({
+                    ...loginForm,
+                    password: event.target.value,
+                  })
+                }
+                placeholder="••••••••"
+                required
+              />
+            </label>
+
+            {error && (
+              <div className="owner-alert owner-alert--error">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="owner-primary"
+              disabled={loading}
+            >
+              {loading
+                ? "جاري الدخول..."
+                : "تسجيل الدخول"}
+            </button>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="owner-page" dir="rtl">
+      <div className="owner-shell">
+        <header className="owner-header">
+          <div>
+            <span className="owner-eyebrow">
+              لوحة الإدارة
+            </span>
+
+            <h1>
+              مرحباً {owner.name || "صاحب المحل"}
+            </h1>
+
+            <p>{owner.phone}</p>
+          </div>
+
+          <div className="owner-header__actions">
+            <button
+              type="button"
+              className="owner-refresh"
+              onClick={() => loadDashboard()}
+              disabled={dashboardLoading}
+            >
+              {dashboardLoading
+                ? "جاري التحديث..."
+                : "تحديث"}
+            </button>
+
+            <button
+              type="button"
+              className="owner-logout"
+              onClick={handleLogout}
+              disabled={loading}
+            >
+              تسجيل الخروج
+            </button>
+          </div>
+        </header>
+
+        {message && (
+          <div className="owner-alert owner-alert--success">
+            {message}
+          </div>
+        )}
+
+        {error && (
+          <div className="owner-alert owner-alert--error">
+            {error}
+          </div>
+        )}
+
+        <section className="owner-stats">
+          <article className="owner-stat owner-stat--orders">
+            <span>طلبات اليوم</span>
+            <strong>{stats.today_orders}</strong>
+          </article>
+
+          <article className="owner-stat owner-stat--sales">
+            <span>مبيعات اليوم</span>
+            <strong>
+              {formatPrice(stats.today_sales)}
+            </strong>
+          </article>
+
+          <article className="owner-stat owner-stat--delivery">
+            <span>رسوم التوصيل</span>
+            <strong>
+              {formatPrice(stats.today_delivery_fees)}
+            </strong>
+          </article>
+
+          <article className="owner-stat owner-stat--active">
+            <span>الطلبات الحالية</span>
+            <strong>{currentOrders.length}</strong>
+          </article>
+        </section>
+
+        <section className="owner-section">
+          <div className="owner-section__heading">
+            <div>
+              <span className="owner-eyebrow">
+                المتابعة المباشرة
+              </span>
+
+              <h2>الطلبات</h2>
+            </div>
+
+            <div className="owner-section__summary">
+              <span>
+                جديدة: {pendingOrders.length}
+              </span>
+
+              <span>
+                مكتملة: {deliveredOrders.length}
+              </span>
+            </div>
+          </div>
+
+          {dashboardLoading ? (
+            <div className="owner-empty">
+              جاري تحميل الطلبات...
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="owner-empty">
+              <span>📦</span>
+
+              <strong>لا توجد طلبات</strong>
+
+              <p>
+                ستظهر الطلبات هنا عند وصولها.
+              </p>
+            </div>
+          ) : (
+            <div className="owner-orders">
+              {orders.map((order) => (
+                <article
+                  key={order.id}
+                  className="owner-order"
+                >
+                  <div className="owner-order__top">
+                    <div>
+                      <strong>
+                        {order.customer_name}
+                      </strong>
+
+                      <span>
+                        {formatDate(order.created_at)}
+                      </span>
+                    </div>
+
+                    <span
+                      className={`owner-badge owner-badge--${
+                        STATUS_CLASS[order.status] || ""
+                      }`}
+                    >
+                      {STATUS_LABELS[order.status] ||
+                        order.status}
+                    </span>
+                  </div>
+
+                  <div className="owner-order__customer">
+                    <div>
+                      <span>الهاتف</span>
+
+                      <strong>
+                        {order.customer_phone}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>العنوان</span>
+
+                      <strong>
+                        {order.customer_address}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="owner-order__bottom">
+                    <strong>
+                      {formatPrice(order.total)}
+                    </strong>
+
+                    {order.driver ? (
+                      <div className="owner-driver-info">
+                        <span>
+                          السائق: {order.driver.name}
+                        </span>
+
+                        <span
+                          className={
+                            order.driver.is_online
+                              ? "is-online"
+                              : "is-offline"
+                          }
+                        >
+                          {order.driver.is_online
+                            ? "متصل"
+                            : "غير متصل"}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="owner-unassigned">
+                        لم يتم تعيين سائق
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="owner-order__actions">
+                    <button
+                      type="button"
+                      className="owner-details-button"
+                      onClick={() =>
+                        setSelectedOrder(order)
+                      }
+                    >
+                      تفاصيل الطلب
+                    </button>
+
+                    {order.status !== "delivered" && (
+                      <div className="owner-assign">
+                        <select
+                          value={
+                            driverSelections[order.id] ||
+                            order.driver_id ||
+                            ""
+                          }
+                          onChange={(event) =>
+                            setDriverSelections({
+                              ...driverSelections,
+                              [order.id]:
+                                event.target.value,
+                            })
+                          }
+                        >
+                          <option value="">
+                            اختر السائق
+                          </option>
+
+                          {drivers.map((driver) => (
+                            <option
+                              key={driver.id}
+                              value={driver.id}
+                            >
+                              {driver.name}
+                              {driver.is_online
+                                ? " — متصل"
+                                : " — غير متصل"}
+                            </option>
+                          ))}
+                        </select>
+
+                        <button
+                          type="button"
+                          className="owner-assign-button"
+                          onClick={() =>
+                            assignDriver(order)
+                          }
+                          disabled={loading}
+                        >
+                          تعيين
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="owner-section">
+          <div className="owner-section__heading">
+            <div>
+              <span className="owner-eyebrow">
+                فريق التوصيل
+              </span>
+
+              <h2>السائقون</h2>
+            </div>
+          </div>
+
+          <div className="owner-drivers">
+            {drivers.length === 0 ? (
+              <div className="owner-empty">
+                لا يوجد سائقون مسجلون.
+              </div>
+            ) : (
+              drivers.map((driver) => (
+                <article
+                  className="owner-driver"
+                  key={driver.id}
+                >
+                  <div className="owner-driver__avatar">
+                    {driver.name?.charAt(0) || "س"}
+                  </div>
+
+                  <div className="owner-driver__body">
+                    <strong>{driver.name}</strong>
+                    <span>{driver.phone}</span>
+                  </div>
+
+                  <span
+                    className={`owner-driver__status ${
+                      driver.is_online
+                        ? "is-online"
+                        : "is-offline"
+                    }`}
+                  >
+                    <span />
+
+                    {driver.is_online
+                      ? "متصل"
+                      : "غير متصل"}
+                  </span>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
+
+      {selectedOrder && (
+        <div
+          className="owner-modal-backdrop"
+          onClick={() => setSelectedOrder(null)}
+        >
+          <section
+            className="owner-modal"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+            <button
+              type="button"
+              className="owner-modal__close"
+              onClick={() =>
+                setSelectedOrder(null)
+              }
+              aria-label="إغلاق"
+            >
+              ×
+            </button>
+
+            <span className="owner-eyebrow">
+              تفاصيل الطلب
+            </span>
+
+            <h2>
+              {selectedOrder.customer_name}
+            </h2>
+
+            <div className="owner-detail-list">
+              <div>
+                <span>الهاتف</span>
+
+                <strong>
+                  {selectedOrder.customer_phone}
+                </strong>
+              </div>
+
+              <div>
+                <span>العنوان</span>
+
+                <strong>
+                  {selectedOrder.customer_address}
+                </strong>
+              </div>
+
+              <div>
+                <span>الحالة</span>
+
+                <strong>
+                  {STATUS_LABELS[
+                    selectedOrder.status
+                  ] || selectedOrder.status}
+                </strong>
+              </div>
+
+              <div>
+                <span>المجموع</span>
+
+                <strong>
+                  {formatPrice(
+                    selectedOrder.total
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>رسوم التوصيل</span>
+
+                <strong>
+                  {formatPrice(
+                    selectedOrder.delivery_fee
+                  )}
+                </strong>
+              </div>
+            </div>
+
+            <div className="owner-items">
+              <h3>المنتجات</h3>
+
+              {Array.isArray(selectedOrder.items) &&
+              selectedOrder.items.length > 0 ? (
+                selectedOrder.items.map(
+                  (item, index) => (
+                    <div
+                      className="owner-item"
+                      key={item.id || index}
+                    >
+                      <span>
+                        {getItemName(item)}
+                      </span>
+
+                      <strong>
+                        ×{getItemQuantity(item)}
+                      </strong>
+                    </div>
+                  )
+                )
+              ) : (
+                <p>
+                  لا توجد تفاصيل منتجات لهذا الطلب.
+                </p>
+              )}
+            </div>
+
+            {selectedOrder.driver && (
+              <div className="owner-assigned-driver">
+                <span>السائق المعيّن</span>
+
+                <strong>
+                  {selectedOrder.driver.name}
+                </strong>
+
+                <small>
+                  {selectedOrder.driver.phone}
+                </small>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+    </main>
+  );
+}

@@ -1,0 +1,560 @@
+import { useState } from "react";
+import { supabase } from "./supabase.js";
+import "./App.css";
+
+export default function App() {
+  const [step, setStep] = useState("login");
+
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [driverPhone, setDriverPhone] = useState("");
+
+  const [driver, setDriver] = useState(null);
+  const [sessionToken, setSessionToken] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // =========================
+  // تسجيل الدخول
+  // =========================
+  async function login(event) {
+    event.preventDefault();
+
+    setError("");
+
+    const identifier = username.trim();
+    const userPassword = password;
+
+    if (!identifier) {
+      setError("أدخل اسم المستخدم.");
+      return;
+    }
+
+    if (!userPassword) {
+      setError("أدخل كلمة السر.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data, error: rpcError } = await supabase.rpc(
+        "unified_login",
+        {
+          p_identifier: identifier,
+          p_password: userPassword,
+        }
+      );
+
+      if (rpcError) {
+        console.error(rpcError);
+        setError("حدث خطأ أثناء تسجيل الدخول.");
+        return;
+      }
+
+      const result = data || {};
+
+      if (!result.success) {
+        setError(
+          result.message ||
+            "اسم المستخدم أو كلمة السر غير صحيحة."
+        );
+        return;
+      }
+
+      const role = result.role;
+
+      // =========================
+      // الليفري
+      // =========================
+      if (role === "driver") {
+        const driverData = result.driver || {};
+
+        const driverId =
+          driverData.id ||
+          result.driver_id ||
+          result.id;
+
+        const driverName =
+          driverData.name ||
+          result.driver_name ||
+          result.name ||
+          "";
+
+        const phone =
+          driverData.phone ||
+          result.driver_phone ||
+          result.phone ||
+          "";
+
+        const token = result.session_token || "";
+
+        if (!driverId || !token) {
+          setError("بيانات جلسة الليفري غير مكتملة.");
+          return;
+        }
+
+        // إذا مازال ما عندوش رقم هاتف
+        if (!phone.trim()) {
+          setDriver({
+            id: driverId,
+            name: driverName,
+            phone: "",
+          });
+
+          setSessionToken(token);
+          setDriverPhone("");
+          setPassword("");
+          setUsername("");
+
+          setStep("phone");
+          return;
+        }
+
+        // إذا الرقم موجود مسبقًا
+        const loggedDriver = {
+          id: driverId,
+          name: driverName,
+          phone: phone,
+          role: "driver",
+        };
+
+        setDriver(loggedDriver);
+
+        localStorage.setItem(
+          "chapati_auth_user",
+          JSON.stringify(loggedDriver)
+        );
+
+        setStep("dashboard");
+
+        return;
+      }
+
+      // =========================
+      // أي role آخر
+      // =========================
+      setError(
+        "هذا الحساب ليس حساب ليفري."
+      );
+    } catch (err) {
+      console.error(err);
+      setError("حدث خطأ غير متوقع.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // =========================
+  // حفظ رقم هاتف الليفري
+  // =========================
+  async function saveDriverPhone(event) {
+    event.preventDefault();
+
+    setError("");
+
+    const phone = driverPhone.trim();
+
+    if (!/^0[5-7][0-9]{8}$/.test(phone)) {
+      setError(
+        "أدخل رقم هاتف جزائري صحيح من 10 أرقام، مثال: 0550123456"
+      );
+      return;
+    }
+
+    if (!driver?.id || !sessionToken) {
+      setError("جلسة الدخول غير صالحة. أعد تسجيل الدخول.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data, error: rpcError } = await supabase.rpc(
+        "set_driver_phone",
+        {
+          p_driver_id: driver.id,
+          p_session_token: sessionToken,
+          p_phone: phone,
+        }
+      );
+
+      if (rpcError) {
+        console.error(rpcError);
+        setError(
+          rpcError.message ||
+            "تعذر حفظ رقم الهاتف."
+        );
+        return;
+      }
+
+      const result = data || {};
+
+      if (!result.success) {
+        setError(
+          result.message ||
+            "تعذر حفظ رقم الهاتف."
+        );
+        return;
+      }
+
+      // إنشاء بيانات الدخول النهائية
+      const loggedDriver = {
+        id: driver.id,
+        name: driver.name,
+        phone: result.phone || phone,
+        role: "driver",
+      };
+
+      setDriver(loggedDriver);
+
+      localStorage.setItem(
+        "chapati_auth_user",
+        JSON.stringify(loggedDriver)
+      );
+
+      setSessionToken("");
+      setDriverPhone("");
+      setStep("dashboard");
+    } catch (err) {
+      console.error(err);
+      setError("حدث خطأ أثناء حفظ رقم الهاتف.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // =========================
+  // تسجيل الخروج
+  // =========================
+  function logout() {
+    localStorage.removeItem("chapati_auth_user");
+
+    setDriver(null);
+    setSessionToken("");
+    setUsername("");
+    setPassword("");
+    setDriverPhone("");
+    setError("");
+    setStep("login");
+  }
+
+  // =========================
+  // صفحة تسجيل الدخول
+  // =========================
+  if (step === "login") {
+    return (
+      <div
+        dir="rtl"
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f5f5f5",
+          padding: "20px",
+          fontFamily: "Arial, sans-serif",
+        }}
+      >
+        <form
+          onSubmit={login}
+          style={{
+            width: "100%",
+            maxWidth: "400px",
+            background: "#fff",
+            padding: "30px",
+            borderRadius: "18px",
+            boxShadow: "0 5px 25px rgba(0,0,0,0.1)",
+          }}
+        >
+          <h1
+            style={{
+              textAlign: "center",
+              marginBottom: "10px",
+            }}
+          >
+            تسجيل الدخول
+          </h1>
+
+          <p
+            style={{
+              textAlign: "center",
+              color: "#777",
+              marginBottom: "25px",
+            }}
+          >
+            واجهة الليفري
+          </p>
+
+          <label>اسم المستخدم</label>
+
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="مثال: ليفرور"
+            autoComplete="username"
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "13px",
+              marginTop: "7px",
+              marginBottom: "15px",
+              border: "1px solid #ddd",
+              borderRadius: "10px",
+              fontSize: "16px",
+            }}
+          />
+
+          <label>كلمة السر</label>
+
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="أدخل كلمة السر"
+            autoComplete="current-password"
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "13px",
+              marginTop: "7px",
+              marginBottom: "15px",
+              border: "1px solid #ddd",
+              borderRadius: "10px",
+              fontSize: "16px",
+            }}
+          />
+
+          {error && (
+            <div
+              style={{
+                background: "#ffe8e8",
+                color: "#c62828",
+                padding: "12px",
+                borderRadius: "10px",
+                marginBottom: "15px",
+                textAlign: "center",
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: "100%",
+              padding: "14px",
+              border: "none",
+              borderRadius: "10px",
+              background: "#111",
+              color: "#fff",
+              fontSize: "17px",
+              cursor: loading ? "wait" : "pointer",
+            }}
+          >
+            {loading ? "جاري الدخول..." : "دخول"}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  // =========================
+  // إدخال رقم الهاتف
+  // =========================
+  if (step === "phone") {
+    return (
+      <div
+        dir="rtl"
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f5f5f5",
+          padding: "20px",
+          fontFamily: "Arial, sans-serif",
+        }}
+      >
+        <form
+          onSubmit={saveDriverPhone}
+          style={{
+            width: "100%",
+            maxWidth: "400px",
+            background: "#fff",
+            padding: "30px",
+            borderRadius: "18px",
+            boxShadow: "0 5px 25px rgba(0,0,0,0.1)",
+          }}
+        >
+          <h1
+            style={{
+              textAlign: "center",
+              marginBottom: "10px",
+            }}
+          >
+            مرحبًا {driver?.name}
+          </h1>
+
+          <p
+            style={{
+              textAlign: "center",
+              color: "#777",
+              lineHeight: "1.8",
+            }}
+          >
+            قبل الدخول إلى واجهة الليفري، أدخل رقم هاتفك.
+          </p>
+
+          <label>رقم الهاتف</label>
+
+          <input
+            type="tel"
+            value={driverPhone}
+            onChange={(e) =>
+              setDriverPhone(
+                e.target.value.replace(/\D/g, "").slice(0, 10)
+              )
+            }
+            placeholder="0550123456"
+            inputMode="numeric"
+            autoComplete="tel"
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "14px",
+              marginTop: "8px",
+              marginBottom: "15px",
+              border: "1px solid #ddd",
+              borderRadius: "10px",
+              fontSize: "18px",
+              direction: "ltr",
+              textAlign: "center",
+            }}
+          />
+
+          {error && (
+            <div
+              style={{
+                background: "#ffe8e8",
+                color: "#c62828",
+                padding: "12px",
+                borderRadius: "10px",
+                marginBottom: "15px",
+                textAlign: "center",
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: "100%",
+              padding: "14px",
+              border: "none",
+              borderRadius: "10px",
+              background: "#111",
+              color: "#fff",
+              fontSize: "17px",
+              cursor: loading ? "wait" : "pointer",
+            }}
+          >
+            {loading
+              ? "جاري حفظ الرقم..."
+              : "حفظ والدخول"}
+          </button>
+
+          <button
+            type="button"
+            onClick={logout}
+            style={{
+              width: "100%",
+              padding: "12px",
+              marginTop: "10px",
+              border: "1px solid #ddd",
+              borderRadius: "10px",
+              background: "#fff",
+              fontSize: "15px",
+              cursor: "pointer",
+            }}
+          >
+            رجوع
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  // =========================
+  // واجهة الليفري
+  // =========================
+  if (step === "dashboard") {
+    return (
+      <div
+        dir="rtl"
+        style={{
+          minHeight: "100vh",
+          background: "#f5f5f5",
+          padding: "25px",
+          fontFamily: "Arial, sans-serif",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "600px",
+            margin: "40px auto",
+            background: "#fff",
+            padding: "30px",
+            borderRadius: "18px",
+            boxShadow: "0 5px 25px rgba(0,0,0,0.1)",
+          }}
+        >
+          <h1>واجهة الليفري 🚚</h1>
+
+          <hr />
+
+          <p>
+            <strong>الاسم:</strong>{" "}
+            {driver?.name}
+          </p>
+
+          <p>
+            <strong>رقم الهاتف:</strong>{" "}
+            {driver?.phone}
+          </p>
+
+          <p>
+            <strong>الدور:</strong> ليفري
+          </p>
+
+          <button
+            onClick={logout}
+            style={{
+              width: "100%",
+              padding: "14px",
+              marginTop: "25px",
+              border: "none",
+              borderRadius: "10px",
+              background: "#d32f2f",
+              color: "#fff",
+              fontSize: "17px",
+              cursor: "pointer",
+            }}
+          >
+            تسجيل الخروج
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}

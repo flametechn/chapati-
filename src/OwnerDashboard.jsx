@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabase.js";
 import { menuGroups } from "./config.js";
 import "./OwnerDashboard.css";
@@ -219,7 +219,7 @@ export default function OwnerDashboard({
         await supabase.rpc(
           "owner_broadcast_message",
           {
-            p_owner_session_token:
+            p_session_token:
               sessionToken,
             p_title: title,
             p_message: messageText,
@@ -228,6 +228,8 @@ export default function OwnerDashboard({
         );
 
       if (rpcError) {
+      console.error("DELETE_DRIVER_RPC_ERROR", rpcError);
+      console.error("DELETE_DRIVER_RPC_DATA", data);
         throw rpcError;
       }
 
@@ -380,6 +382,8 @@ export default function OwnerDashboard({
       });
 
       if (rpcError) {
+      console.error("DELETE_DRIVER_RPC_ERROR", rpcError);
+      console.error("DELETE_DRIVER_RPC_DATA", data);
         setError("تعذر تحميل لوحة صاحب المحل.");
       }
 
@@ -484,7 +488,7 @@ export default function OwnerDashboard({
         await supabase.rpc(
           "owner_get_promo_data",
           {
-            p_owner_session_token: token,
+            p_session_token: token,
           }
         );
 
@@ -534,7 +538,7 @@ export default function OwnerDashboard({
         await supabase.rpc(
           "owner_send_promo_to_customer",
           {
-            p_owner_session_token: sessionToken,
+            p_session_token: sessionToken,
             p_customer_id: customerId,
           }
         );
@@ -619,7 +623,7 @@ export default function OwnerDashboard({
       const { data, error: rpcError } = await supabase.rpc(
         "create_driver",
         {
-          p_owner_session_token: sessionToken,
+          p_session_token: sessionToken,
           p_name: name,
           p_phone: phone,
           p_password: password,
@@ -627,6 +631,8 @@ export default function OwnerDashboard({
       );
 
       if (rpcError) {
+      console.error("DELETE_DRIVER_RPC_ERROR", rpcError);
+      console.error("DELETE_DRIVER_RPC_DATA", data);
         throw rpcError;
       }
 
@@ -673,14 +679,16 @@ export default function OwnerDashboard({
 
     try {
       const { data, error: rpcError } = await supabase.rpc(
-        "delete_driver",
+        "owner_delete_driver",
         {
-          p_owner_session_token: sessionToken,
+          p_session_token: sessionToken,
           p_driver_id: driver.id,
         }
       );
 
       if (rpcError) {
+      console.error("DELETE_DRIVER_RPC_ERROR", rpcError);
+      console.error("DELETE_DRIVER_RPC_DATA", data);
         setError(
           rpcError.message ||
             "\u062a\u0639\u0630\u0631 \u062d\u0630\u0641 \u0627\u0644\u0633\u0627\u0626\u0642."
@@ -718,7 +726,7 @@ export default function OwnerDashboard({
     const { data, error: rpcError } = await supabase.rpc(
       "owner_assign_order",
       {
-        p_owner_session_token: sessionToken,
+        p_session_token: sessionToken,
         p_order_id: order.id,
         p_driver_id: driverId,
       }
@@ -1676,6 +1684,7 @@ export default function OwnerDashboard({
     </main>
   );
 }
+
 
 
 

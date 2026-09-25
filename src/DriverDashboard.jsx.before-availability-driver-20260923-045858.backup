@@ -1,0 +1,496 @@
+﻿import { useEffect, useState } from "react";
+import { supabase } from "./supabase.js";
+import "./DriverDashboard.css";
+
+const SESSION_KEY = "chapati_driver_session";
+
+const STATUS_LABELS = {
+  assigned: "تم تعيين الطلب",
+  picked_up: "تم استلام الطلب",
+  delivering: "في الطريق",
+  delivered: "تم التوصيل",
+};
+
+const NEXT_STATUS = {
+  assigned: {
+    next: "picked_up",
+    label: "تم استلام الطلب",
+  },
+  picked_up: {
+    next: "delivering",
+    label: "في الطريق",
+  },
+  delivering: {
+    next: "delivered",
+    label: "تم التوصيل",
+  },
+};
+
+function formatPrice(value) {
+  return `${Number(value || 0).toLocaleString("fr-DZ")} دج`;
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  return new Date(value).toLocaleString("ar-DZ", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+export default function DriverDashboard() {
+  const [sessionToken, setSessionToken] = useState(
+    () => localStorage.getItem(SESSION_KEY) || ""
+  );
+  const [driver, setDriver] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [loginForm, setLoginForm] = useState({
+    phone: "",
+    password: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (sessionToken) {
+      validateSession();
+    }
+  }, []);
+
+  async function validateSession() {
+    setLoading(true);
+    setError("");
+
+    const { data, error: rpcError } = await supabase.rpc(
+      "validate_driver_session",
+      {
+        p_session_token: sessionToken,
+      }
+    );
+
+    setLoading(false);
+
+    if (rpcError || !data?.success) {
+      localStorage.removeItem(SESSION_KEY);
+      setSessionToken("");
+      setDriver(null);
+      return;
+    }
+
+    setDriver(data.driver);
+    await loadOrders(sessionToken);
+  }
+
+  async function loadOrders(token = sessionToken) {
+    setOrdersLoading(true);
+    setError("");
+
+    const { data, error: rpcError } = await supabase.rpc(
+      "driver_get_orders",
+      {
+        p_session_token: token,
+      }
+    );
+
+    setOrdersLoading(false);
+
+    if (rpcError) {
+      setError("تعذر تحميل الطلبات.");
+      return;
+    }
+
+    if (!data?.success) {
+      setError("انتهت جلسة السائق. عد تسجيل الدخول.");
+      handleLogout();
+      return;
+    }
+
+    setOrders(data.orders || []);
+  }
+
+  async function handleLogin(event) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    const { data, error: rpcError } = await supabase.rpc("driver_login", {
+      p_phone: loginForm.phone.trim(),
+      p_password: loginForm.password,
+    });
+
+    setLoading(false);
+
+    if (rpcError || !data?.success) {
+      setError(
+        data?.error === "invalid_credentials"
+          ? "رقم الهاتف و كلمة المرور غير صحيحة."
+          : "تعذر تسجيل الدخول."
+      );
+      return;
+    }
+
+    const token = data.session_token;
+
+    localStorage.setItem(SESSION_KEY, token);
+    setSessionToken(token);
+    setDriver(data.driver);
+    setLoginForm({ phone: "", password: "" });
+
+    await loadOrders(token);
+  }
+
+  async function handleLogout() {
+    const token = sessionToken;
+
+    if (token) {
+      await supabase.rpc("driver_logout", {
+        p_session_token: token,
+      });
+    }
+
+    localStorage.removeItem(SESSION_KEY);
+    setSessionToken("");
+    setDriver(null);
+    setOrders([]);
+    setSelectedOrder(null);
+    setMessage("");
+    setError("");
+  }
+
+  async function toggleOnline() {
+    if (!driver) return;
+
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    const nextStatus = !driver.is_online;
+
+    const { data, error: rpcError } = await supabase.rpc(
+      "driver_update_online_status",
+      {
+        p_session_token: sessionToken,
+        p_is_online: nextStatus,
+      }
+    );
+
+    setLoading(false);
+
+    if (rpcError || !data?.success) {
+      setError("تعذر تغيير حالة الاتصال.");
+      return;
+    }
+
+    setDriver(data.driver);
+    setMessage(nextStatus ? "صبحت متصلاً الن." : "تم إيقاف حالة الاتصال.");
+  }
+
+  async function updateOrderStatus(order, nextStatus) {
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    const { data, error: rpcError } = await supabase.rpc(
+      "driver_update_order_status",
+      {
+        p_session_token: sessionToken,
+        p_order_id: order.id,
+        p_status: nextStatus,
+      }
+    );
+
+    setLoading(false);
+
+    if (rpcError || !data?.success) {
+      setError(
+        data?.error === "invalid_status_transition"
+          ? "لا يمكن الانتقال إلى هذه الحالة."
+          : "تعذر تحديث حالة الطلب."
+      );
+      return;
+    }
+
+    setOrders((current) =>
+      current.map((item) =>
+        item.id === order.id
+          ? { ...item, status: data.status }
+          : item
+      )
+    );
+
+    setSelectedOrder((current) =>
+      current && current.id === order.id
+        ? { ...current, status: data.status }
+        : current
+    );
+
+    setMessage("تم تحديث حالة الطلب بنجاح.");
+  }
+
+  if (loading && !driver && !sessionToken) {
+    return <div className="driver-page"><div className="driver-loading">جاري التحميل...</div></div>;
+  }
+
+  if (!sessionToken || !driver) {
+    return (
+      <main className="driver-page" dir="rtl">
+        <section className="driver-login">
+          <div className="driver-brand">
+            <span className="driver-brand__icon">🚗</span>
+            <div>
+              <h1>لوحة السائق</h1>
+              <p>تسجيل الدخول لإدارة طلبات التوصيل</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleLogin} className="driver-form">
+            <label>
+              رقم الهاتف
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={loginForm.phone}
+                onChange={(event) =>
+                  setLoginForm({
+                    ...loginForm,
+                    phone: event.target.value,
+                  })
+                }
+                placeholder="0550000000"
+                required
+              />
+            </label>
+
+            <label>
+              كلمة المرور
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={loginForm.password}
+                onChange={(event) =>
+                  setLoginForm({
+                    ...loginForm,
+                    password: event.target.value,
+                  })
+                }
+                placeholder="••••••••"
+                required
+              />
+            </label>
+
+            {error && <div className="driver-alert driver-alert--error">{error}</div>}
+
+            <button type="submit" className="driver-primary" disabled={loading}>
+              {loading ? "جاري الدخول..." : "تسجيل الدخول"}
+            </button>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="driver-page" dir="rtl">
+      <div className="driver-shell">
+        <header className="driver-header">
+          <div>
+            <span className="driver-eyebrow">لوحة التوصيل</span>
+            <h1>مرحباً {driver.name}</h1>
+            <p>{driver.phone}</p>
+          </div>
+
+          <button
+            type="button"
+            className={`driver-status ${driver.is_online ? "is-online" : ""}`}
+            onClick={toggleOnline}
+            disabled={loading}
+          >
+            <span />
+            {driver.is_online ? "متصل" : "غير متصل"}
+          </button>
+        </header>
+
+        {message && (
+          <div className="driver-alert driver-alert--success">
+            {message}
+          </div>
+        )}
+
+        {error && (
+          <div className="driver-alert driver-alert--error">
+            {error}
+          </div>
+        )}
+
+        <section className="driver-stats">
+          <div className="driver-stat">
+            <span>الطلبات</span>
+            <strong>{orders.length}</strong>
+          </div>
+          <div className="driver-stat">
+            <span>الحالية</span>
+            <strong>
+              {orders.filter((order) => order.status !== "delivered").length}
+            </strong>
+          </div>
+        </section>
+
+        <section className="driver-section">
+          <div className="driver-section__heading">
+            <div>
+              <span className="driver-eyebrow">طلباتك</span>
+              <h2>الطلبات المسندة إليك</h2>
+            </div>
+
+            <button
+              type="button"
+              className="driver-refresh"
+              onClick={() => loadOrders()}
+              disabled={ordersLoading}
+            >
+              {ordersLoading ? "..." : "تحديث"}
+            </button>
+          </div>
+
+          {ordersLoading ? (
+            <div className="driver-empty">جاري تحميل الطلبات...</div>
+          ) : orders.length === 0 ? (
+            <div className="driver-empty">
+              <span>📦</span>
+              <strong>لا توجد طلبات حالياً</strong>
+              <p>ستظهر هنا الطلبات المسندة إليك.</p>
+            </div>
+          ) : (
+            <div className="driver-orders">
+              {orders.map((order) => (
+                <article
+                  key={order.id}
+                  className="driver-order"
+                  onClick={() => setSelectedOrder(order)}
+                >
+                  <div className="driver-order__top">
+                    <strong>{order.customer_name}</strong>
+                    <span className={`driver-badge driver-badge--${order.status}`}>
+                      {STATUS_LABELS[order.status] || order.status}
+                    </span>
+                  </div>
+
+                  <p className="driver-order__address">
+                    📍 {order.customer_address}
+                  </p>
+
+                  <div className="driver-order__meta">
+                    <span>{formatPrice(order.total)}</span>
+                    <span>{formatDate(order.created_at)}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <button
+          type="button"
+          className="driver-logout"
+          onClick={handleLogout}
+          disabled={loading}
+        >
+          تسجيل الخروج
+        </button>
+      </div>
+
+      {selectedOrder && (
+        <div
+          className="driver-modal-backdrop"
+          onClick={() => setSelectedOrder(null)}
+        >
+          <section
+            className="driver-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="driver-modal__close"
+              onClick={() => setSelectedOrder(null)}
+              aria-label="إغلاق"
+            >
+              
+            </button>
+
+            <span className="driver-eyebrow">تفاصيل الطلب</span>
+            <h2>{selectedOrder.customer_name}</h2>
+
+            <div className="driver-detail-list">
+              <div>
+                <span>الهاتف</span>
+                <strong>{selectedOrder.customer_phone}</strong>
+              </div>
+              <div>
+                <span>العنوان</span>
+                <strong>{selectedOrder.customer_address}</strong>
+              </div>
+              <div>
+                <span>الحالة</span>
+                <strong>{STATUS_LABELS[selectedOrder.status]}</strong>
+              </div>
+              <div>
+                <span>المجموع</span>
+                <strong>{formatPrice(selectedOrder.total)}</strong>
+              </div>
+              <div>
+                <span>التوصيل</span>
+                <strong>{formatPrice(selectedOrder.delivery_fee)}</strong>
+              </div>
+            </div>
+
+            <div className="driver-items">
+              <h3>المنتجات</h3>
+              {Array.isArray(selectedOrder.items) &&
+              selectedOrder.items.length > 0 ? (
+                selectedOrder.items.map((item, index) => (
+                  <div className="driver-item" key={item.id || index}>
+                    <span>{item.name || "منتج"}</span>
+                    <strong>
+                      {item.quantity || 1}
+                    </strong>
+                  </div>
+                ))
+              ) : (
+                <p>لا توجد تفاصيل منتجات لهذا الطلب.</p>
+              )}
+            </div>
+
+            {NEXT_STATUS[selectedOrder.status] && (
+              <button
+                type="button"
+                className="driver-primary driver-primary--large"
+                disabled={loading}
+                onClick={() =>
+                  updateOrderStatus(
+                    selectedOrder,
+                    NEXT_STATUS[selectedOrder.status].next
+                  )
+                }
+              >
+                {loading
+                  ? "جاري التحديث..."
+                  : NEXT_STATUS[selectedOrder.status].label}
+              </button>
+            )}
+
+            {selectedOrder.status === "delivered" && (
+              <div className="driver-complete">
+                ✓ تم توصيل هذا الطلب
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+    </main>
+  );
+}

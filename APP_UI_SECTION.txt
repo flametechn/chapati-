@@ -1,0 +1,900 @@
+﻿                          ? "product-option--selected"
+                          : ""
+                      }`}
+                      key={option}
+                    >
+                      <input
+                        type="radio"
+                        name="product-type"
+                        value={option}
+                        checked={type === option}
+                        onChange={() => {
+                          setType(option);
+                          setExtraFilling(false);
+                        }}
+                      />
+
+                      <span>{option}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="product-options__section">
+              <h3>الإضافة الخاصة</h3>
+
+              <div className="product-options__choices">
+                <label
+                  className={`product-option ${
+                    specialChoice === "cheese"
+                      ? "product-option--selected"
+                      : ""
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="special-choice"
+                    value="cheese"
+                    checked={
+                      specialChoice === "cheese"
+                    }
+                    onChange={() =>
+                      setSpecialChoice("cheese")
+                    }
+                  />
+
+                  <span>
+                    شيزي + {formatPrice(50)}
+                  </span>
+                </label>
+
+                <label
+                  className={`product-option ${
+                    specialChoice === "comopair"
+                      ? "product-option--selected"
+                      : ""
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="special-choice"
+                    value="comopair"
+                    checked={
+                      specialChoice === "comopair"
+                    }
+                    onChange={() =>
+                      setSpecialChoice("comopair")
+                    }
+                  />
+
+                  <span>
+                    كوموبير + {formatPrice(100)}
+                  </span>
+                </label>
+              </div>
+            </div>
+          </>
+        )}
+
+        {fillingType && (
+          <div className="product-options__section">
+            <h3>إضافة حشوة</h3>
+
+            <div className="product-options__choices">
+              <label
+                className={`product-option ${
+                  extraFilling
+                    ? "product-option--selected"
+                    : ""
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={extraFilling}
+                  onChange={(event) =>
+                    setExtraFilling(
+                      event.target.checked
+                    )
+                  }
+                />
+
+                <span>
+                  إضافة {fillingType} +50 دج
+                </span>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {fillingType && (
+          <div className="product-options__section">
+            <h3>إضافات مجانية</h3>
+
+            <div className="product-options__choices">
+              {freeExtraOptions.map(
+                (option) => {
+                  const selected =
+                    freeExtras.includes(
+                      option.id
+                    );
+
+                  return (
+                    <label
+                      className={`product-option ${
+                        selected
+                          ? "product-option--selected"
+                          : ""
+                      }`}
+                      key={option.id}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() =>
+                          toggleFreeExtra(
+                            option.id
+                          )
+                        }
+                      />
+
+                      <span>
+                        {option.name} مجاني
+                      </span>
+                    </label>
+                  );
+                }
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="product-options__section">
+          <h3>الصلصة</h3>
+
+          <div className="product-options__choices">
+            {sauces.map((option) => (
+              <label
+                className={`product-option ${
+                  sauce.includes(option.id)
+                    ? "product-option--selected"
+                    : ""
+                }`}
+                key={option.id}
+              >
+                <input
+                  type="checkbox"
+                  name="product-sauce"
+                  value={option.id}
+                  checked={sauce.includes(
+                    option.id
+                  )}
+                  onChange={() =>
+                    setSauce((current) =>
+                      current.includes(option.id)
+                        ? current.filter(
+                            (id) =>
+                              id !== option.id
+                          )
+                        : [
+                            ...current,
+                            option.id,
+                          ]
+                    )
+                  }
+                />
+
+                <span>{option.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="product-options__footer">
+          <strong>
+            {formatPrice(
+              unitPrice * quantity
+            )}
+          </strong>
+
+          <div className="product-options__qty">
+            <button
+              type="button"
+              onClick={() =>
+                setQuantity((q) =>
+                  Math.max(1, q - 1)
+                )
+              }
+              aria-label="إنقاص الكمية"
+            >
+              -
+            </button>
+
+            <strong>{quantity}</strong>
+
+            <button
+              type="button"
+              onClick={() =>
+                setQuantity((q) => q + 1)
+              }
+              aria-label="زيادة الكمية"
+            >
+              +
+            </button>
+          </div>
+
+          <button
+            type="button"
+            className="product-options__confirm"
+            onClick={handleConfirm}
+          >
+            أضف إلى السلة
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   CART
+   ========================================================= */
+
+function CartModal({
+  cart,
+  customer,
+  onClose,
+  onUpdateQuantity,
+  onRemove,
+  onCheckout,
+}) {
+  const [customerName, setCustomerName] =
+    useState(customer?.name || "");
+
+  const [customerPhone, setCustomerPhone] =
+    useState(customer?.phone || "");
+
+  const [customerAddress, setCustomerAddress] =
+    useState("");
+
+  const [customerLatitude, setCustomerLatitude] =
+    useState(null);
+
+  const [customerLongitude, setCustomerLongitude] =
+    useState(null);
+
+  const [gpsLoading, setGpsLoading] =
+    useState(false);
+
+  const [formError, setFormError] =
+    useState("");
+
+  function handleGetCustomerLocation() {
+    if (!navigator.geolocation) {
+      setFormError(
+        "المتصفح لا يدعم تحديد الموقع."
+      );
+      return;
+    }
+
+    setGpsLoading(true);
+    setFormError("");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCustomerLatitude(
+          position.coords.latitude
+        );
+
+        setCustomerLongitude(
+          position.coords.longitude
+        );
+
+        setGpsLoading(false);
+      },
+      () => {
+        setGpsLoading(false);
+        setFormError(
+          "تعذر الحصول على موقعك. يرجى السماح بالوصول إلى الموقع."
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    );
+  }
+
+  const subtotal = cart.reduce(
+    (total, item) =>
+      total + item.unitPrice * item.quantity,
+    0
+  );
+
+  const delivery =
+    cart.length > 0
+      ? storeConfig.deliveryFee
+      : 0;
+
+  const total = subtotal + delivery;
+
+  const totalItems = cart.reduce(
+    (total, item) =>
+      total + item.quantity,
+    0
+  );
+
+  return (
+    <div
+      className="cart-modal-backdrop"
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        className="cart-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="سلة الطلب"
+        onClick={(event) =>
+          event.stopPropagation()
+        }
+      >
+        <div className="cart-modal__header">
+          <div>
+            <h2>سلة الطلب</h2>
+
+            <span>
+              {totalItems}{" "}
+              {totalItems === 1
+                ? "منتج"
+                : "منتجات"}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className="cart-modal__close"
+            onClick={onClose}
+            aria-label="إغلاق السلة"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="cart-modal__items">
+          {cart.map((item) => (
+            <div
+              className="cart-item"
+              key={item.cartId}
+            >
+              <img
+                src={item.image}
+                alt={item.name}
+              />
+
+              <div className="cart-item__info">
+                <strong>{item.name}</strong>
+
+                {item.options?.length > 0 && (
+                  <small>
+                    الإضافات:{" "}
+                    {item.options
+                      .map(
+                        (option) =>
+                          option.name
+                      )
+                      .join(" + ")}
+                  </small>
+                )}
+
+                <span>
+                  {formatPrice(
+                    item.unitPrice
+                  )}
+                </span>
+              </div>
+
+              <div className="cart-item__actions">
+                <button
+                  type="button"
+                  onClick={() =>
+                    onUpdateQuantity(
+                      item.cartId,
+                      item.quantity - 1
+                    )
+                  }
+                  aria-label={`إنقاص كمية ${item.name}`}
+                >
+                  -
+                </button>
+
+                <strong>
+                  {item.quantity}
+                </strong>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    onUpdateQuantity(
+                      item.cartId,
+                      item.quantity + 1
+                    )
+                  }
+                  aria-label={`زيادة كمية ${item.name}`}
+                >
+                  +
+                </button>
+              </div>
+
+              <button
+                type="button"
+                className="cart-item__remove"
+                onClick={() =>
+                  onRemove(item.cartId)
+                }
+              >
+                حذف المنتج
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="cart-customer-form">
+          <label>
+            الاسم الكامل
+
+            <input
+              type="text"
+              value={customerName}
+              onChange={(event) =>
+                setCustomerName(
+                  event.target.value
+                )
+              }
+              placeholder="مثال: الاسم الكامل"
+            />
+          </label>
+
+          <label>
+            الهاتف / الواتساب
+
+            <input
+              type="tel"
+              inputMode="tel"
+              value={customerPhone}
+              onChange={(event) =>
+                setCustomerPhone(
+                  event.target.value
+                )
+              }
+              placeholder="0550000000"
+            />
+          </label>
+
+
+          <button
+            type="button"
+            className="cart-modal__gps"
+            onClick={handleGetCustomerLocation}
+            disabled={gpsLoading}
+          >
+            {gpsLoading
+              ? "جاري تحديد الموقع..."
+              : customerLatitude !== null &&
+                customerLongitude !== null
+              ? "✓ تم تحديد موقعك"
+              : "📍 تحديد موقعي عبر GPS"}
+          </button>
+{customerLatitude !== null &&
+  customerLongitude !== null && (
+    <div
+      className="customer-location-map"
+      style={{
+        marginTop: "12px",
+        width: "100%",
+        overflow: "hidden",
+        borderRadius: "16px",
+      }}
+    >
+      <MapContainer
+        key={`${customerLatitude}-${customerLongitude}`}
+        center={[customerLatitude, customerLongitude]}
+        zoom={16}
+        scrollWheelZoom={false}
+        style={{
+          height: "260px",
+          width: "100%",
+        }}
+      >
+        <TileLayer
+          attribution="&copy; OpenStreetMap contributors"
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <Marker
+          position={[customerLatitude, customerLongitude]}
+        />
+      </MapContainer>
+    </div>
+  )}
+
+          {formError && (
+            <small className="cart-customer-form__error">
+              {formError}
+            </small>
+          )}
+        </div>
+
+        <div className="cart-summary">
+          <div>
+            <span>
+              مجموع المنتجات
+            </span>
+
+            <strong>
+              {formatPrice(subtotal)}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              مصاريف التوصيل
+            </span>
+
+            <strong>
+              {formatPrice(delivery)}
+            </strong>
+          </div>
+
+          <div className="cart-summary__total">
+            <span>
+              المجموع النهائي
+            </span>
+
+            <strong>
+              {formatPrice(total)}
+            </strong>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="cart-modal__checkout"
+          onClick={() => {
+            if (
+              customerName.trim().length < 2 ||
+              customerPhone.trim().length < 8 ||
+              customerLatitude === null ||
+              customerLongitude === null
+            ) {
+              setFormError(
+                "يرجى إدخال الاسم ورقم الهاتف وتحديد موقعك عبر GPS."
+              );
+              return;
+            }
+
+            setFormError("");
+
+            onCheckout({
+              subtotal,
+              delivery,
+              total,
+              customerName:
+                customerName.trim(),
+              customerPhone:
+                customerPhone.trim(),
+              customerAddress:
+                `GPS: ${customerLatitude}, ${customerLongitude}`,
+              customerLatitude,
+              customerLongitude,
+            });
+          }}
+        >
+          طلب
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   MAIN APP
+   ========================================================= */
+
+export default function App() {
+  const [cart, setCart] = useState([]);
+
+  const [customerOrderTracking, setCustomerOrderTracking] = useState(null);
+  const [customerOrderTrackingId, setCustomerOrderTrackingId] = useState("");
+  const [customerOrderTrackingToken, setCustomerOrderTrackingToken] = useState("");
+  const [customerOrderTrackingError, setCustomerOrderTrackingError] = useState("");
+  const [customerOrderSuccess, setCustomerOrderSuccess] = useState(false);
+  const [customerOrderResult, setCustomerOrderResult] = useState(null);
+  const [isCartOpen, setIsCartOpen] =
+    useState(false);
+
+  const [selectedItem, setSelectedItem] =
+    useState(null);
+
+  const [
+    productAvailability,
+    setProductAvailability,
+  ] = useState({});
+
+  async function loadProductAvailability() {
+    if (!supabase) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("product_availability")
+        .select("product_id, available");
+
+      if (error) {
+        console.error(
+          "product_availability:",
+          error
+        );
+        return;
+      }
+
+      const map = {};
+
+      (data || []).forEach((item) => {
+        map[item.product_id] = Boolean(
+          item.available
+        );
+      });
+
+      setProductAvailability(map);
+    } catch (requestError) {
+      console.error(
+        "loadProductAvailability:",
+        requestError
+      );
+    }
+  }
+
+  /* =====================================================
+     PRODUCT AVAILABILITY REALTIME SUBSCRIPTION
+     ===================================================== */
+
+  useEffect(() => {
+    if (!supabase) {
+      return undefined;
+    }
+
+    const channel = supabase
+      .channel("product-availability-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "product_availability",
+        },
+        () => {
+          loadProductAvailability();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+  useEffect(() => {
+    loadProductAvailability();
+
+    function refreshAvailability() {
+      loadProductAvailability();
+    }
+
+    window.addEventListener(
+      "focus",
+      refreshAvailability
+    );
+
+    document.addEventListener(
+      "visibilitychange",
+      refreshAvailability
+    );
+
+    return () => {
+      window.removeEventListener(
+        "focus",
+        refreshAvailability
+      );
+
+      document.removeEventListener(
+        "visibilitychange",
+        refreshAvailability
+      );
+    };
+  }, []);
+
+  /* =====================================================
+     UNIFIED AUTH
+     OWNER + DRIVER + CUSTOMER
+     ===================================================== */
+
+
+
+  /* =====================================================
+     UNIFIED AUTH
+     OWNER + DRIVER
+     ===================================================== */
+
+  const [
+    isAuthLoginOpen,
+    setIsAuthLoginOpen,
+  ] = useState(false);
+
+  const [
+    authPhoneInput,
+    setAuthPhoneInput,
+  ] = useState("");
+
+  const [
+    authPasswordInput,
+    setAuthPasswordInput,
+  ] = useState("");
+
+  const [
+    authLoginLoading,
+    setAuthLoginLoading,
+  ] = useState(false);
+
+  const [
+    authLoginError,
+    setAuthLoginError,
+  ] = useState("");
+
+  const [
+    customerRegisterForm,
+    setCustomerRegisterForm,
+  ] = useState({
+    name: "",
+    phone: "",
+    password: "",
+  });
+
+  const [
+    customerRegisterLoading,
+    setCustomerRegisterLoading,
+  ] = useState(false);
+
+  const [
+    customerRegisterError,
+    setCustomerRegisterError,
+  ] = useState("");
+
+  const [authUser, setAuthUser] =
+    useState(() => {
+      try {
+        const saved =
+          localStorage.getItem(
+            "chapati_auth_user"
+          );
+
+        if (!saved) return null;
+
+        const parsed =
+          JSON.parse(saved);
+
+        return parsed?.role === "owner" ||
+          parsed?.role === "driver" ||
+          parsed?.role === "customer"
+          ? parsed
+          : null;
+      } catch {
+        return null;
+      }
+    });
+
+  const [authStep, setAuthStep] =
+    useState(() => {
+      try {
+        const saved =
+          localStorage.getItem(
+            "chapati_auth_user"
+          );
+
+        if (!saved) return "login";
+
+        const parsed =
+          JSON.parse(saved);
+
+        if (
+          parsed?.role === "owner" ||
+          parsed?.role === "driver"
+        ) {
+          return "dashboard";
+        }
+
+        if (parsed?.role === "customer") {
+          return "customer";
+        }
+
+        return "login";
+      } catch {
+        return "login";
+      }
+    });
+
+  const [
+    authSessionToken,
+    setAuthSessionToken,
+  ] = useState(() => {
+    try {
+      const savedUser =
+        localStorage.getItem(
+          "chapati_auth_user"
+        );
+
+      if (savedUser) {
+        const parsed =
+          JSON.parse(savedUser);
+
+        if (parsed?.sessionToken) {
+          return parsed.sessionToken;
+        }
+      }
+
+      return (
+        localStorage.getItem(
+          "chapati_owner_session"
+        ) ||
+        localStorage.getItem(
+          "chapati_customer_session"
+        ) ||
+        localStorage.getItem(
+          "chapati_driver_session_token"
+        ) ||
+        localStorage.getItem(
+          "chapati_driver_session"
+        ) ||
+        ""
+      );
+    } catch {
+      return "";
+    }
+  });
+
+  const [authPhoneError, setAuthPhoneError] =
+    useState("");
+
+  const [
+    authSavePhoneLoading,
+    setAuthSavePhoneLoading,
+  ] = useState(false);
+
+  const [
+    ownerOrdersToday,
+    setOwnerOrdersToday,
+  ] = useState(null);
+
+  const [
+    ownerOrdersLoading,
+    setOwnerOrdersLoading,
+  ] = useState(false);
+
+  const [
+    customerNotifications,
+    setCustomerNotifications,
+  ] = useState([]);
+
+  const [
+    customerNotificationsLoading,
+    setCustomerNotificationsLoading,
+  ] = useState(false);
+  const [
+    customerPoints,
+    setCustomerPoints,
+  ] = useState(0);
+
+  const [
+    customerPointsLoading,
+    setCustomerPointsLoading,
+  ] = useState(false);
+
+  /* =====================================================

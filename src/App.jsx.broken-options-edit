@@ -1,0 +1,524 @@
+import { useEffect, useState } from "react";
+import {
+  storeConfig,
+  menuGroups,
+  heroImage,
+  themes,
+  sauces,
+} from "./config.js";
+import "./App.css";
+import { supabase } from "./supabase.js";
+import { playClickSound, playSwipeSound } from "./sound.js";
+
+function waLink(text) {
+  const base = `https://wa.me/${storeConfig.whatsappNumber}`;
+  return text ? `${base}?text=${encodeURIComponent(text)}` : base;
+}
+
+function formatPrice(value) {
+  return `${value.toLocaleString("fr-DZ")} دج`;
+}
+
+function StoryCard({ item, onAdd, allowQuantity }) {
+  const theme = themes[item.theme] || themes.violet;
+  const [quantity, setQuantity] = useState(1);
+
+  function handleAdd() {
+    onAdd(item, quantity);
+    setQuantity(1);
+  }
+
+  return (
+    <article
+      className="story-card"
+      style={{
+        "--card-from": theme.from,
+        "--card-to": theme.to,
+      }}
+    >
+      <div className="story-card__glow" aria-hidden="true"></div>
+
+      <div className="story-card__body">
+        <h3 className="story-card__name">{item.name}</h3>
+        <p className="story-card__desc">{item.desc}</p>
+      </div>
+
+      <div className="story-card__figure">
+        <div className="story-card__shadow" aria-hidden="true"></div>
+
+        <img
+          className="story-card__img"
+          src={item.image}
+          alt={item.name}
+          loading="lazy"
+        />
+      </div>
+
+      <span className="story-card__price">
+        {formatPrice(item.price)}
+      </span>
+
+      {allowQuantity && (
+        <div className="story-card__qty">
+          <button
+            type="button"
+            onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+            aria-label={`إنقاص كمية ${item.name}`}
+          >
+            −
+          </button>
+
+          <strong>{quantity}</strong>
+
+          <button
+            type="button"
+            onClick={() => setQuantity((q) => q + 1)}
+            aria-label={`زيادة كمية ${item.name}`}
+          >
+            +
+          </button>
+        </div>
+      )}
+
+      <button
+        type="button"
+        className="story-card__order"
+        onClick={handleAdd}
+      >
+        أضف إلى السلة
+      </button>
+    </article>
+  );
+}
+
+function ProductOptionsModal({ item, onClose, onConfirm }) {
+  const isChapatiSpecial = item.customization === "chapati-special";
+  const isMalfoufSpecial = item.customization === "malfouf-special";
+  const isSpecial = isChapatiSpecial || isMalfoufSpecial;
+
+  const [quantity, setQuantity] = useState(item.initialQuantity || 1);
+
+  const detectedFilling =
+    item.name?.includes("سكالوب")
+      ? "سكالوب"
+      : item.name?.includes("كبدة")
+        ? "كبدة"
+        : item.name?.includes("ميكس")
+          ? "ميكس"
+          : null;
+
+  const defaultType = detectedFilling || item.type || "????????????";
+  const [type] = useState(defaultType);
+  const [specialChoice, setSpecialChoice] = useState("cheese");
+  const [sauce, setSauce] = useState("mayonnaise");
+  const [extraFilling, setExtraFilling] = useState(false);
+  const [freeExtras, setFreeExtras] = useState([]);
+
+  const basePrice = isChapatiSpecial
+    ? 250
+    : isMalfoufSpecial
+      ? 300
+      : item.price;
+
+  const fillingType = isSpecial
+    ? ["سكالوب", "كبدة", "ميكس"].includes(type)
+      ? type
+      : detectedFilling
+    : detectedFilling;
+
+  let unitPrice = basePrice;
+
+  if (isSpecial && specialChoice === "cheese") {
+    unitPrice = basePrice + 50;
+  }
+
+  if (isSpecial && specialChoice === "comopair") {
+    unitPrice = basePrice + 100;
+  }
+
+  if (extraFilling && fillingType) {
+    unitPrice += 50;
+  }
+
+  const selectedOptions = [];
+
+  if (isSpecial) {
+selectedOptions.push({
+      id: specialChoice,
+      name: specialChoice === "cheese" ? "شيزي" : "كوموبير",
+      price: specialChoice === "cheese" ? 50 : 100,
+    });
+  }
+
+  if (extraFilling && fillingType) {
+    selectedOptions.push({
+      id:
+        fillingType === "سكالوب"
+          ? "extra-scalope"
+          : fillingType === "كبدة"
+            ? "extra-kebda"
+            : "extra-mix",
+      name: `إضافة ${fillingType}`,
+      price: 50,
+    });
+  }
+
+  const freeExtraOptions = [
+    {
+      id: "onion",
+      name: "بصل",
+    },
+    {
+      id: "dabcha",
+      name: "دبشة",
+    },
+    {
+      id: "pepper",
+      name: "فلفل",
+    },
+  ];
+
+  freeExtras.forEach((extraId) => {
+    const extra = freeExtraOptions.find(
+      (option) => option.id === extraId
+    );
+
+    if (extra) {
+      selectedOptions.push({
+        id: extra.id,
+        name: extra.name,
+        price: 0,
+      });
+    }
+  });
+
+  const selectedSauce =
+    sauces.find((option) => option.id === sauce) || sauces[0];
+
+  selectedOptions.push({
+    id: selectedSauce.id,
+    name: selectedSauce.name,
+    price: 0,
+  });
+
+  function handleConfirm() {
+    onConfirm({
+      ...item,
+      type,
+      options: selectedOptions,
+      unitPrice,
+      quantity,
+      cartId: `${item.id}-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`,
+    });
+  }
+
+  function toggleFreeExtra(extraId) {
+    setFreeExtras((current) =>
+      current.includes(extraId)
+        ? current.filter((id) => id !== extraId)
+        : [...current, extraId]
+    );
+  }
+
+  return (
+    <div
+      className="product-options-backdrop"
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        className="product-options-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`خيارات المنتج ${item.name}`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="product-options__header">
+          <div>
+            <h2>{item.name}</h2>
+            <p>اختر الإضافات التي تريدها</p>
+          </div>
+
+          <button
+            type="button"
+            className="cart-modal__close"
+            onClick={onClose}
+            aria-label="إغلاق النافذة"
+          >
+            ×
+          </button>
+        </div>
+
+        {isSpecial && (
+          <>
+
+
+          {ownerCheckError && (
+            <small className="owner-check__error">
+              {ownerCheckError}
+            </small>
+          )}
+        </div>
+      )}
+
+      <section className="hero">
+        <div
+          className="hero__pattern"
+          style={{
+            backgroundImage: `url(${heroImage})`,
+          }}
+          aria-hidden="true"
+        ></div>
+
+        <div
+          className="hero__overlay"
+          aria-hidden="true"
+        ></div>
+
+        <div className="hero__content">
+          <h1 className="hero__title">
+            <span className="hero__title-line hero__title-line--1">
+              {storeConfig.name}
+            </span>
+          </h1>
+
+          <p className="hero__tagline balance">
+            {storeConfig.tagline}
+          </p>
+
+          <button
+            type="button"
+            className="hero__cta"
+            onClick={() =>
+              document
+                .getElementById("chapati-normal")
+                ?.scrollIntoView({
+                  behavior: "smooth",
+                })
+            }
+          >
+            ابدأ طلبك الآن
+          </button>
+        </div>
+
+        <div
+          className="hero__tear"
+          aria-hidden="true"
+        ></div>
+      </section>
+
+      <main className="menu">
+        {menuGroups.map((group) => (
+          <section
+            className="menu-group"
+            key={group.id}
+            id={group.id}
+          >
+            <h2 className="menu-group__title">
+              {group.title}
+            </h2>
+
+            <div className="menu-group__strip">
+              {group.items.map((item) => (
+                <StoryCard
+                  item={item}
+                  key={item.id}
+                  onAdd={addToCart}
+                  allowQuantity={group.id !== "drinks"}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+      </main>
+
+      <section className="story">
+        <p className="story__text balance">
+          يتم إعداد كل شباتي وملفوف عند الطلب، باستخدام
+          مكونات طازجة وطهي متقن، حتى يصلك طلبك ساخناً
+          ولذيذاً.
+        </p>
+      </section>
+
+      <footer className="site-footer">
+        <div className="site-footer__info">
+          <span>{storeConfig.address}</span>
+
+          <span
+            className="site-footer__dot"
+            aria-hidden="true"
+          ></span>
+
+          <span>{storeConfig.hours}</span>
+        </div>
+
+        <button
+          type="button"
+          className="site-footer__cta"
+          onClick={() => setIsCartOpen(true)}
+        >
+          {cart.length > 0
+            ? "مراجعة الطلب"
+            : "فتح السلة"}
+        </button>
+      </footer>
+
+      {isCustomerLoginOpen && (
+        <div
+          className="customer-login-backdrop"
+          role="presentation"
+          onClick={() =>
+            setIsCustomerLoginOpen(false)
+          }
+        >
+          <div
+            className="customer-login-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="customer-login-title"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+            <div className="customer-login__header">
+              <div>
+                <h2 id="customer-login-title">
+                  {customer
+                    ? "حسابي"
+                    : "تسجيل الدخول"}
+                </h2>
+
+                <p>
+                  أدخل اسمك ورقم هاتفك لتسجيل الدخول.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="cart-modal__close"
+                onClick={() =>
+                  setIsCustomerLoginOpen(false)
+                }
+                aria-label="إغلاق"
+              >
+                ×
+              </button>
+            </div>
+
+            <form
+              onSubmit={loginCustomer}
+              className="customer-login__form"
+            >
+              <label>
+                الاسم
+
+                <input
+                  type="text"
+                  value={customerNameInput}
+                  onChange={(event) =>
+                    setCustomerNameInput(
+                      event.target.value
+                    )
+                  }
+                  placeholder="مثال: أحمد"
+                  autoComplete="name"
+                />
+              </label>
+
+              <label>
+                رقم الهاتف
+
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  value={customerPhoneInput}
+                  onChange={(event) =>
+                    setCustomerPhoneInput(
+                      event.target.value
+                    )
+                  }
+                  placeholder="0550000000"
+                  autoComplete="tel"
+                />
+              </label>
+
+              {customerLoginError && (
+                <small className="customer-login__error">
+                  {customerLoginError}
+                </small>
+              )}
+
+              <button
+                type="submit"
+                className="customer-login__submit"
+                disabled={customerLoginLoading}
+              >
+                {customerLoginLoading
+                  ? "جاري تسجيل الدخول..."
+                  : "تسجيل الدخول"}
+              </button>
+            </form>
+
+            {customer && (
+              <button
+                type="button"
+                className="customer-login__logout"
+                onClick={() => {
+                  logoutCustomer();
+                  setIsCustomerLoginOpen(false);
+                }}
+              >
+                تسجيل الخروج
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {cart.length > 0 && (
+        <button
+          type="button"
+          className="cart-floating"
+          onClick={() => setIsCartOpen(true)}
+          aria-label="فتح سلة الطلب"
+        >
+          <span className="cart-floating__info">
+            <span className="cart-floating__badge">
+              {totalItems}
+            </span>
+
+            <span className="cart-floating__text">
+              <strong>سلة الطلب</strong>
+              <small>اضغط لمراجعة طلبك</small>
+            </span>
+          </span>
+
+          <span className="cart-floating__price">
+            {formatPrice(subtotal)}
+          </span>
+        </button>
+      )}
+
+      {selectedItem && (
+        <ProductOptionsModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onConfirm={addConfiguredItem}
+        />
+      )}
+
+      {isCartOpen && (
+        <CartModal
+          cart={cart}
+          customer={customer}
+          onClose={() => setIsCartOpen(false)}
+          onUpdateQuantity={updateQuantity}
+          onRemove={removeFromCart}
+          onCheckout={checkoutOrder}
+        />
+      )}
+    </>
+  );
+}

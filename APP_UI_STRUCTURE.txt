@@ -1,0 +1,129 @@
+﻿37: <article
+46: <div className="story-card__glow" aria-hidden="true"></div>
+48: <div className="story-card__body">
+49: <h3 className="story-card__name">{item.name}</h3>
+51: <p className="story-card__desc">{item.desc}</p>
+55: <div className="story-card__figure glow2-product">
+57: className="glow2-product__light"
+62: className="story-card__shadow"
+67: className="story-card__img"
+74: <span className="story-card__price">
+89: <div className="story-card__qty">
+90: <button
+102: <button
+112: <button
+114: className="story-card__order"
+304: className="product-options-backdrop"
+309: className="product-options-modal"
+317: <div className="product-options__header">
+326: <button
+328: className="cart-modal__close"
+339: <div className="product-options__section">
+342: <div className="product-options__choices">
+374: <div className="product-options__section">
+377: <div className="product-options__choices">
+431: <div className="product-options__section">
+434: <div className="product-options__choices">
+461: <div className="product-options__section">
+464: <div className="product-options__choices">
+502: <div className="product-options__section">
+505: <div className="product-options__choices">
+543: <div className="product-options__footer">
+550: <div className="product-options__qty">
+551: <button
+565: <button
+576: <button
+578: className="product-options__confirm"
+680: className="cart-modal-backdrop"
+685: className="cart-modal"
+693: <div className="cart-modal__header">
+705: <button
+707: className="cart-modal__close"
+715: <div className="cart-modal__items">
+718: className="cart-item"
+726: <div className="cart-item__info">
+748: <div className="cart-item__actions">
+749: <button
+766: <button
+780: <button
+782: className="cart-item__remove"
+793: <div className="cart-customer-form">
+826: <button
+828: className="cart-modal__gps"
+842: className="customer-location-map"
+872: <small className="cart-customer-form__error">
+878: <div className="cart-summary">
+899: <div className="cart-summary__total">
+910: <button
+912: className="cart-modal__checkout"
+3295: <header className="site-header">
+3296: <span className="site-header__name">
+3300: <div className="site-header__actions">
+3301: <button
+3303: className="site-header__customer"
+3311: <button
+3313: className="site-header__cta"
+3331: <section className="hero">
+3333: className="hero__pattern"
+3341: className="hero__overlay"
+3345: <div className="hero__content">
+3346: <h1 className="hero__title">
+3347: <span className="hero__title-line hero__title-line--1 hero-glow-title">
+3352: <p className="hero__tagline balance chapati-caption hero-glow-tagline">
+3356: <button
+3358: className="hero__cta"
+3374: className="hero__tear"
+3389: <main className="menu">
+3391: <section
+3392: className="menu-group"
+3396: <h2 className="menu-group__title">
+3400: <div className="menu-group__strip">
+3428: <section className="story">
+3429: <p className="story__text balance">
+3443: <footer
+3444: className="site-footer"
+3452: <div className="site-footer__info">
+3458: className="site-footer__dot"
+3467: <button
+3469: className="site-footer__cta"
+3488: className="driver-login-backdrop"
+3495: className="driver-login-modal"
+3503: <div className="driver-login__header">
+3537: <button
+3539: className="cart-modal__close"
+3552: <div className="driver-login__form">
+3553: <button
+3555: className="driver-login__submit"
+3564: <button
+3566: className="driver-login__submit"
+3586: className="driver-login__form"
+3634: <small className="driver-login__error">
+3639: <button
+3641: className="driver-login__submit"
+3653: <button
+3655: className="auth-login__link"
+3669: className="driver-login__form"
+3674: <div className="driver-login__info">
+3704: <small className="driver-login__error">
+3709: <button
+3711: className="driver-login__submit"
+3727: className="driver-login__form"
+3793: <small className="driver-login__error">
+3798: <button
+3800: className="driver-login__submit"
+3810: <button
+3812: className="auth-login__link"
+3826: <div className="driver-login__form">
+3827: <div className="driver-login__info">
+3836: <div className="customer-points-card">
+3837: <div className="customer-points-card__top">
+3858: className="customer-notifications"
+3861: <div className="customer-notifications__header">
+3872: <div className="customer-notifications__empty">
+3876: <div className="customer-notifications__empty">
+3880: <div className="customer-notifications__list">
+3883: <article
+3884: className="customer-notification"
+3896: <div className="customer-notification__code">
+3919: <button
+3921: className="driver-login__submit"
