@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabase.js";
 import { menuGroups } from "./config.js";
 import "./OwnerDashboard.css";
@@ -95,6 +95,7 @@ export default function OwnerDashboard({
     setPromoSendingCustomerId,
   ] = useState("");
 
+  const [activeSection, setActiveSection] = useState("stats");
   const [stats, setStats] = useState({
     today_orders: 0,
     today_sales: 0,
@@ -865,7 +866,75 @@ export default function OwnerDashboard({
           </div>
         )}
 
-        <section className="owner-stats">
+        <div className="owner-dashboard-layout">
+
+          <nav
+            className="owner-dashboard-tabs"
+            aria-label="أقسام لوحة المالك"
+          >
+            <button
+              type="button"
+              className={`owner-dashboard-tab ${
+                activeSection === "stats" ? "is-active" : ""
+              }`}
+              onClick={() => setActiveSection("stats")}
+            >
+              الإحصائيات
+            </button>
+
+            <button
+              type="button"
+              className={`owner-dashboard-tab ${
+                activeSection === "notifications" ? "is-active" : ""
+              }`}
+              onClick={() => setActiveSection("notifications")}
+            >
+              الإشعارات
+            </button>
+
+            <button
+              type="button"
+              className={`owner-dashboard-tab ${
+                activeSection === "orders" ? "is-active" : ""
+              }`}
+              onClick={() => setActiveSection("orders")}
+            >
+              الطلبات
+            </button>
+
+            <button
+              type="button"
+              className={`owner-dashboard-tab ${
+                activeSection === "products" ? "is-active" : ""
+              }`}
+              onClick={() => setActiveSection("products")}
+            >
+              المنتجات
+            </button>
+
+            <button
+              type="button"
+              className={`owner-dashboard-tab ${
+                activeSection === "promo" ? "is-active" : ""
+              }`}
+              onClick={() => setActiveSection("promo")}
+            >
+              Promo
+            </button>
+
+            <button
+              type="button"
+              className={`owner-dashboard-tab ${
+                activeSection === "drivers" ? "is-active" : ""
+              }`}
+              onClick={() => setActiveSection("drivers")}
+            >
+              السائقون
+            </button>
+          </nav>
+
+          <div className="owner-dashboard-content">
+        <section className={`owner-stats owner-dashboard-section ${activeSection === "stats" ? "is-active" : ""}`}>
           <article className="owner-stat owner-stat--orders">
             <span>طلبات اليوم</span>
             <strong>{stats.today_orders}</strong>
@@ -891,7 +960,7 @@ export default function OwnerDashboard({
           </article>
         </section>
 
-        <section className="owner-section owner-broadcast">
+        <section className={`owner-section owner-broadcast owner-dashboard-section ${activeSection === "notifications" ? "is-active" : ""}`}>
           <div className="owner-section__heading">
             <div>
               <span className="owner-eyebrow">
@@ -946,7 +1015,7 @@ export default function OwnerDashboard({
         </section>
 
 
-        <section className="owner-section">
+        <section className={`owner-section owner-dashboard-section ${activeSection === "orders" ? "is-active" : ""}`}>
           <div className="owner-section__heading">
             <div>
               <span className="owner-eyebrow">
@@ -1120,7 +1189,7 @@ export default function OwnerDashboard({
           )}
         </section>
 
-        <section className="owner-section owner-products-section">
+        <section className={`owner-section owner-products-section owner-dashboard-section ${activeSection === "products" ? "is-active" : ""}`}>
           <div className="owner-section__heading">
             <div>
               <span className="owner-eyebrow">
@@ -1202,7 +1271,7 @@ export default function OwnerDashboard({
         </section>
 
 
-        <section className="owner-section owner-promo-section">
+        <section className={`owner-section owner-promo-section owner-dashboard-section ${activeSection === "promo" ? "is-active" : ""}`}>
           <div className="owner-section__heading">
             <div>
               <span className="owner-eyebrow">
@@ -1312,7 +1381,7 @@ export default function OwnerDashboard({
               </div>
             )}
           </div>
-        </section>        <section className="owner-section owner-driver-create">
+        </section>        <section className={`owner-section owner-driver-create owner-dashboard-section ${activeSection === "drivers" ? "is-active" : ""}`}>
           <div className="owner-section-header">
             <div>
               <span className="owner-eyebrow">إدارة السائقين</span>
@@ -1386,7 +1455,7 @@ export default function OwnerDashboard({
           </form>
         </section>
 
-        <section className="owner-section">
+        <section className={`owner-section owner-dashboard-section ${activeSection === "drivers" ? "is-active" : ""}`}>
           <div className="owner-section__heading">
             <div>
               <span className="owner-eyebrow">
@@ -1437,6 +1506,8 @@ export default function OwnerDashboard({
         </section>
       </div>
 
+        </div>
+      </div>
       {selectedOrder && (
         <div
           className="owner-modal-backdrop"

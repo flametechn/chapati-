@@ -74,8 +74,12 @@ function playNewOrderAlert() {
 
     if (!AudioContextClass) return;
 
-    if (!alertAudioContext || alertAudioContext.state === "closed") {
-      alertAudioContext = new AudioContextClass();
+    if (
+      !alertAudioContext ||
+      alertAudioContext.state === "closed"
+    ) {
+      alertAudioContext =
+        new AudioContextClass();
     }
 
     const ctx = alertAudioContext;
@@ -88,50 +92,71 @@ function playNewOrderAlert() {
     let timer = null;
     let oscillators = [];
 
-    const ringBurst = () => {
+    const createTone = (
+      frequency,
+      start,
+      duration,
+      volume = 0.22
+    ) => {
       if (stopped || ctx.state === "closed") return;
+
+      const oscillator =
+        ctx.createOscillator();
+
+      const gain =
+        ctx.createGain();
+
+      oscillator.type = "sine";
+
+      oscillator.frequency.setValueAtTime(
+        frequency,
+        start
+      );
+
+      gain.gain.setValueAtTime(
+        0.0001,
+        start
+      );
+
+      gain.gain.exponentialRampToValueAtTime(
+        volume,
+        start + 0.025
+      );
+
+      gain.gain.setValueAtTime(
+        volume,
+        start + duration - 0.08
+      );
+
+      gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        start + duration
+      );
+
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+
+      oscillator.start(start);
+      oscillator.stop(start + duration + 0.02);
+
+      oscillators.push(oscillator);
+    };
+
+    const ringBurst = () => {
+      if (stopped || ctx.state === "closed") {
+        return;
+      }
 
       const now = ctx.currentTime;
 
-      const createTone = (frequency, start, duration) => {
-        const oscillator = ctx.createOscillator();
-        const gain = ctx.createGain();
+      // iPhone-style two-part ringtone pattern
+      createTone(659.25, now, 0.18, 0.22);
+      createTone(783.99, now + 0.10, 0.22, 0.20);
+      createTone(987.77, now + 0.22, 0.30, 0.18);
 
-        oscillator.type = "sine";
-        oscillator.frequency.setValueAtTime(
-          frequency,
-          start
-        );
-
-        gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(
-          0.9,
-          start + 0.03
-        );
-        gain.gain.setValueAtTime(
-          0.9,
-          start + duration - 0.08
-        );
-        gain.gain.exponentialRampToValueAtTime(
-          0.0001,
-          start + duration
-        );
-
-        oscillator.connect(gain);
-        gain.connect(ctx.destination);
-
-        oscillator.start(start);
-        oscillator.stop(start + duration);
-
-        oscillators.push(oscillator);
-      };
-
-      // رنين هاتف مزدوج عالي الصوت
-      createTone(880, now, 0.65);
-      createTone(1175, now, 0.65);
-
-      createTone(880, now + 0.78, 0.65);
-      createTone(1175, now + 0.78, 0.65);
+      createTone(783.99, now + 0.62, 0.18, 0.22);
+      createTone(987.77, now + 0.72, 0.22, 0.20);
+      createTone(1174.66, now + 0.84, 0.34, 0.17);
 
       timer = window.setTimeout(
         ringBurst,
@@ -156,17 +181,15 @@ function playNewOrderAlert() {
       });
 
       oscillators = [];
-
       activeOrderAlertStop = null;
     };
   } catch (error) {
     console.error(
-      "new order alert error:",
+      "new order ringtone error:",
       error
     );
   }
 }
-
 function stopNewOrderAlert() {
   if (activeOrderAlertStop) {
     activeOrderAlertStop();
@@ -1009,6 +1032,7 @@ export default function DriverDashboard({ onLogout }) {
     </main>
   );
 }
+
 
 
 

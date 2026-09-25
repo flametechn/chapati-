@@ -10,7 +10,7 @@ import {
 } from "./config.js";
 import "./App.css";
 import { supabase } from "./supabase.js";
-import { playClickSound, playSwipeSound } from "./sound.js";
+import { playClickSound, playSwipeSound, playNotificationSound, playOrderStatusSound, playPointsSound, playSuccessSound } from "./sound.js";
 import OwnerDashboard from "./OwnerDashboard.jsx";
 import DriverDashboard from "./DriverDashboard.jsx";
 
@@ -141,6 +141,13 @@ function ProductOptionsModal({
   const isSpecial =
     isChapatiSpecial || isMalfoufSpecial;
 
+  const isDrink =
+    item.customization === "drink";
+
+  const [drinkSize, setDrinkSize] = useState(
+    item.drinkSizes?.[0]?.id || "large"
+  );
+
   const [quantity, setQuantity] = useState(
     item.initialQuantity || 1
   );
@@ -169,7 +176,8 @@ function ProductOptionsModal({
   const [extraFilling, setExtraFilling] =
     useState(false);
 
-  const [freeExtras, setFreeExtras] = useState([]);
+  const [freeExtras, setFreeExtras] =
+    useState([]);
 
   const basePrice = isChapatiSpecial
     ? 250
@@ -185,6 +193,16 @@ function ProductOptionsModal({
 
   let unitPrice = basePrice;
 
+  if (isDrink) {
+    const selectedDrinkSize =
+      item.drinkSizes?.find(
+        (size) => size.id === drinkSize
+      );
+
+    unitPrice =
+      selectedDrinkSize?.price ?? item.price;
+  }
+
   if (
     isSpecial &&
     specialChoice === "comopair"
@@ -197,6 +215,21 @@ function ProductOptionsModal({
   }
 
   const selectedOptions = [];
+
+  if (isDrink) {
+    const selectedDrinkSize =
+      item.drinkSizes?.find(
+        (size) => size.id === drinkSize
+      );
+
+    if (selectedDrinkSize) {
+      selectedOptions.push({
+        id: `drink-size-${selectedDrinkSize.id}`,
+        name: `الحجم: ${selectedDrinkSize.name}`,
+        price: 0,
+      });
+    }
+  }
 
   if (isSpecial) {
     if (isChapatiSpecial) {
@@ -248,33 +281,35 @@ function ProductOptionsModal({
     },
   ];
 
-  freeExtras.forEach((extraId) => {
-    const extra = freeExtraOptions.find(
-      (option) => option.id === extraId
-    );
+  if (!isDrink) {
+    freeExtras.forEach((extraId) => {
+      const extra = freeExtraOptions.find(
+        (option) => option.id === extraId
+      );
 
-    if (extra) {
-      selectedOptions.push({
-        id: extra.id,
-        name: extra.name,
-        price: 0,
-      });
-    }
-  });
+      if (extra) {
+        selectedOptions.push({
+          id: extra.id,
+          name: extra.name,
+          price: 0,
+        });
+      }
+    });
 
-  sauce.forEach((sauceId) => {
-    const selectedSauce = sauces.find(
-      (option) => option.id === sauceId
-    );
+    sauce.forEach((sauceId) => {
+      const selectedSauce = sauces.find(
+        (option) => option.id === sauceId
+      );
 
-    if (selectedSauce) {
-      selectedOptions.push({
-        id: selectedSauce.id,
-        name: selectedSauce.name,
-        price: 0,
-      });
-    }
-  });
+      if (selectedSauce) {
+        selectedOptions.push({
+          id: selectedSauce.id,
+          name: selectedSauce.name,
+          price: 0,
+        });
+      }
+    });
+  }
 
   function handleConfirm() {
     onConfirm({
@@ -319,7 +354,9 @@ function ProductOptionsModal({
             <h2>{item.name}</h2>
 
             <p>
-              اختر الإضافات التي تريدها
+              {isDrink
+                ? "اختر الحجم"
+                : "اختر الإضافات التي تريدها"}
             </p>
           </div>
 
@@ -333,7 +370,41 @@ function ProductOptionsModal({
           </button>
         </div>
 
-        {isSpecial && (
+        {isDrink && (
+          <div className="product-options__section">
+            <h3>الحجم</h3>
+
+            <div className="product-options__choices">
+              {item.drinkSizes?.map((option) => (
+                <label
+                  className={`product-option ${
+                    drinkSize === option.id
+                      ? "product-option--selected"
+                      : ""
+                  }`}
+                  key={option.id}
+                >
+                  <input
+                    type="radio"
+                    name={`drink-size-${item.id}`}
+                    value={option.id}
+                    checked={drinkSize === option.id}
+                    onChange={() =>
+                      setDrinkSize(option.id)
+                    }
+                  />
+
+                  <span>
+                    {option.name} -{" "}
+                    {formatPrice(option.price)}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!isDrink && isSpecial && (
           <>
             {isChapatiSpecial && (
               <div className="product-options__section">
@@ -427,7 +498,7 @@ function ProductOptionsModal({
           </>
         )}
 
-        {fillingType && (
+        {!isDrink && fillingType && (
           <div className="product-options__section">
             <h3>إضافة حشوة</h3>
 
@@ -457,7 +528,7 @@ function ProductOptionsModal({
           </div>
         )}
 
-        {fillingType && (
+        {!isDrink && fillingType && (
           <div className="product-options__section">
             <h3>إضافات مجانية</h3>
 
@@ -499,46 +570,48 @@ function ProductOptionsModal({
           </div>
         )}
 
-        <div className="product-options__section">
-          <h3>الصلصة</h3>
+        {!isDrink && (
+          <div className="product-options__section">
+            <h3>الصلصة</h3>
 
-          <div className="product-options__choices">
-            {sauces.map((option) => (
-              <label
-                className={`product-option ${
-                  sauce.includes(option.id)
-                    ? "product-option--selected"
-                    : ""
-                }`}
-                key={option.id}
-              >
-                <input
-                  type="checkbox"
-                  name="product-sauce"
-                  value={option.id}
-                  checked={sauce.includes(
-                    option.id
-                  )}
-                  onChange={() =>
-                    setSauce((current) =>
-                      current.includes(option.id)
-                        ? current.filter(
-                            (id) =>
-                              id !== option.id
-                          )
-                        : [
-                            ...current,
-                            option.id,
-                          ]
-                    )
-                  }
-                />
+            <div className="product-options__choices">
+              {sauces.map((option) => (
+                <label
+                  className={`product-option ${
+                    sauce.includes(option.id)
+                      ? "product-option--selected"
+                      : ""
+                  }`}
+                  key={option.id}
+                >
+                  <input
+                    type="checkbox"
+                    name="product-sauce"
+                    value={option.id}
+                    checked={sauce.includes(
+                      option.id
+                    )}
+                    onChange={() =>
+                      setSauce((current) =>
+                        current.includes(option.id)
+                          ? current.filter(
+                              (id) =>
+                                id !== option.id
+                            )
+                          : [
+                              ...current,
+                              option.id,
+                            ]
+                      )
+                    }
+                  />
 
-                <span>{option.name}</span>
-              </label>
-            ))}
+                  <span>{option.name}</span>
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="product-options__footer">
           <strong>
@@ -560,7 +633,7 @@ function ProductOptionsModal({
               -
             </button>
 
-            <strong>{quantity}</strong>
+            <span>{quantity}</span>
 
             <button
               type="button"
@@ -578,21 +651,17 @@ function ProductOptionsModal({
             className="product-options__confirm"
             onClick={handleConfirm}
           >
-            أضف إلى السلة
+            إضافة إلى السلة
           </button>
         </div>
       </div>
     </div>
   );
 }
-
-/* =========================================================
-   CART
-   ========================================================= */
-
 function CartModal({
   cart,
   customer,
+  customerPoints,
   onClose,
   onUpdateQuantity,
   onRemove,
@@ -612,6 +681,16 @@ function CartModal({
 
   const [customerLongitude, setCustomerLongitude] =
     useState(null);
+
+  
+  const [promoCode, setPromoCode] =
+    useState("");
+
+  const [discountMethod, setDiscountMethod] =
+    useState("none");
+
+  const [starsToUse, setStarsToUse] =
+    useState(10);
 
   const [gpsLoading, setGpsLoading] =
     useState(false);
@@ -666,8 +745,41 @@ function CartModal({
     cart.length > 0
       ? storeConfig.deliveryFee
       : 0;
+  const normalizedPromoCode =
+    promoCode.trim();
 
-  const total = subtotal + delivery;
+  const normalizedStars =
+    Math.max(
+      0,
+      Math.floor(
+        Number(starsToUse) || 0
+      )
+    );
+
+  const estimatedPromoDiscount =
+    discountMethod === "promo" &&
+    normalizedPromoCode.length > 0
+      ? Math.round(
+          subtotal * 0.20 * 100
+        ) / 100
+      : 0;
+
+  const estimatedStarsDiscount =
+    discountMethod === "stars"
+      ? Math.min(
+          delivery,
+          normalizedStars * 5
+        )
+      : 0;
+
+  const total =
+    subtotal + delivery;
+
+  const displayTotal =
+    subtotal -
+    estimatedPromoDiscount +
+    delivery -
+    estimatedStarsDiscount;
 
   const totalItems = cart.reduce(
     (total, item) =>
@@ -822,6 +934,153 @@ function CartModal({
             />
           </label>
 
+          <div
+            className="cart-discount-method"
+            style={{
+              marginTop: "16px",
+              marginBottom: "16px",
+            }}
+          >
+            <strong>
+              اختر طريقة الخصم
+            </strong>
+
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginTop: "10px",
+              }}
+            >
+              <input
+                type="radio"
+                name="discountMethod"
+                value="none"
+                checked={discountMethod === "none"}
+                onChange={() => {
+                  setDiscountMethod("none");
+                  setPromoCode("");
+                }}
+              />
+              بدون خصم
+            </label>
+
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginTop: "10px",
+              }}
+            >
+              <input
+                type="radio"
+                name="discountMethod"
+                value="promo"
+                checked={discountMethod === "promo"}
+                onChange={() =>
+                  setDiscountMethod("promo")
+                }
+              />
+              🎟️ كود Promo
+            </label>
+
+            {discountMethod === "promo" && (
+              <div style={{ marginTop: "10px" }}>
+                <input
+                  type="text"
+                  value={promoCode}
+                  onChange={(event) =>
+                    setPromoCode(
+                      event.target.value.toUpperCase()
+                    )
+                  }
+                  placeholder="مثال: 123ABC@"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                />
+
+                <small>
+                  إذا وصلك كود Promo من المحل، أدخله هنا للاستفادة من خصم 20% على قيمة المنتجات.
+                </small>
+              </div>
+            )}
+
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginTop: "10px",
+              }}
+            >
+              <input
+                type="radio"
+                name="discountMethod"
+                value="stars"
+                checked={discountMethod === "stars"}
+                onChange={() =>
+                  setDiscountMethod("stars")
+                }
+                disabled={
+                  customer?.role !== "customer"
+                }
+              />
+              ⭐ استعمال النجوم
+            </label>
+
+            {discountMethod === "stars" && (
+              <div style={{ marginTop: "10px" }}>
+                {customer?.role !== "customer" ? (
+                  <small>
+                    يجب تسجيل الدخول بحساب زبون لاستعمال النجوم.
+                  </small>
+                ) : (
+                  <>
+                    <small>
+                      رصيدك الحالي: ⭐{" "}
+                      {Number(customerPoints || 0)}
+                    </small>
+
+                    <input
+                      type="number"
+                      min="10"
+                      step="10"
+                      value={starsToUse}
+                      onChange={(event) =>
+                        setStarsToUse(
+                          Number(event.target.value)
+                        )
+                      }
+                      style={{
+                        marginTop: "8px",
+                      }}
+                    />
+
+                    <small>
+                      كل نجمة = 5 دج خصم من التوصيل.
+                    </small>
+
+                    {estimatedStarsDiscount > 0 && (
+                      <small
+                        style={{
+                          display: "block",
+                          marginTop: "6px",
+                        }}
+                      >
+                        الخصم المتوقع: -{" "}
+                        {formatPrice(
+                          estimatedStarsDiscount
+                        )}
+                      </small>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
 
           <button
             type="button"
@@ -896,13 +1155,41 @@ function CartModal({
             </strong>
           </div>
 
+          {estimatedPromoDiscount > 0 && (
+            <div>
+              <span>
+                خصم Promo (20%)
+              </span>
+
+              <strong>
+                -{formatPrice(
+                  estimatedPromoDiscount
+                )}
+              </strong>
+            </div>
+          )}
+
+          {estimatedStarsDiscount > 0 && (
+            <div>
+              <span>
+                خصم النجوم
+              </span>
+
+              <strong>
+                -{formatPrice(
+                  estimatedStarsDiscount
+                )}
+              </strong>
+            </div>
+          )}
+
           <div className="cart-summary__total">
             <span>
               المجموع النهائي
             </span>
 
             <strong>
-              {formatPrice(total)}
+              {formatPrice(displayTotal)}
             </strong>
           </div>
         </div>
@@ -928,7 +1215,7 @@ function CartModal({
             onCheckout({
               subtotal,
               delivery,
-              total,
+              total: displayTotal,
               customerName:
                 customerName.trim(),
               customerPhone:
@@ -937,6 +1224,9 @@ function CartModal({
                 `GPS: ${customerLatitude}, ${customerLongitude}`,
               customerLatitude,
               customerLongitude,
+              promoCode: discountMethod === "promo" ? normalizedPromoCode || null : null,
+              points: discountMethod === "stars" ? normalizedStars : 0,
+              sessionToken: authUser?.sessionToken || null,
             });
           }}
         >
@@ -1425,7 +1715,11 @@ export default function App() {
           table: "customer_notifications",
           filter: `customer_id=eq.${customerId}`,
         },
-        () => {
+        (payload) => {
+          if (payload?.eventType === "INSERT") {
+            playNotificationSound();
+          }
+
           loadCustomerNotifications(token);
         }
       )
@@ -1438,6 +1732,17 @@ export default function App() {
           filter: `customer_id=eq.${customerId}`,
         },
         (payload) => {
+                    if (
+            payload?.eventType === "INSERT" ||
+            (
+              payload?.eventType === "UPDATE" &&
+              payload?.new?.points != null &&
+              payload?.old?.points !== payload.new.points
+            )
+          ) {
+            playPointsSound();
+          }
+
           if (
             payload?.new &&
             payload.new.points != null
@@ -1459,6 +1764,14 @@ export default function App() {
           filter: `customer_id=eq.${customerId}`,
         },
         (payload) => {
+                    if (
+            payload?.eventType === "UPDATE" &&
+            payload?.new?.status &&
+            payload?.old?.status !== payload.new.status
+          ) {
+            playOrderStatusSound();
+          }
+
           if (
             payload?.new?.id === customerOrderTrackingId &&
             customerOrderTrackingToken
@@ -2046,6 +2359,9 @@ export default function App() {
     customerAddress,
     customerLatitude,
     customerLongitude,
+      promoCode,
+      points,
+      sessionToken,
   }) {
     if (cart.length === 0) return;
 
@@ -2088,6 +2404,10 @@ quantity: item.quantity,
             customerLatitude,
           p_customer_longitude:
             customerLongitude,
+                  p_promo_code:
+            promoCode || null,
+          p_points: points || 0,
+          p_session_token: sessionToken || null,
         }
       );
 
@@ -2111,6 +2431,16 @@ quantity: item.quantity,
           "\u062d\u0633\u0627\u0628 \u0627\u0644\u0632\u0628\u0648\u0646 \u063a\u064a\u0631 \u0635\u062d\u064a\u062d.",
         driver_not_found:
           "\u0627\u0644\u0644\u064a\u0641\u0631\u0648\u0631 \u063a\u064a\u0631 \u0645\u0648\u062c\u0648\u062f \u0641\u064a \u0627\u0644\u0646\u0638\u0627\u0645.",
+        promo_and_points_cannot_be_used_together:
+          "\u064a\u0645\u0643\u0646\u0643 \u0627\u0633\u062a\u0639\u0645\u0627\u0644 \u0627\u0644\u0643\u0648\u062f \u0623\u0648 \u0627\u0644\u0646\u062c\u0648\u0645\u060c \u0648\u0644\u0627 \u064a\u0645\u0643\u0646 \u0627\u0633\u062a\u0639\u0645\u0627\u0644\u0647\u0645\u0627 \u0645\u0639\u064b\u0627.",
+        points_require_customer_session:
+          "\u064a\u062c\u0628 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644 \u0644\u0627\u0633\u062a\u0639\u0645\u0627\u0644 \u0627\u0644\u0646\u062c\u0648\u0645.",
+        invalid_or_expired_session:
+          "\u062c\u0644\u0633\u0629 \u0627\u0644\u062f\u062e\u0648\u0644 \u063a\u064a\u0631 \u0635\u0627\u0644\u062d\u0629 \u0623\u0648 \u0645\u0646\u062a\u0647\u064a\u0629.",
+        minimum_10_points_and_multiples_of_10:
+          "\u064a\u062c\u0628 \u0627\u0633\u062a\u0639\u0645\u0627\u0644 10 \u0646\u062c\u0648\u0645 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644\u060c \u0648\u0628\u0645\u0636\u0627\u0639\u0641 10.",
+        insufficient_points:
+          "\u0631\u0635\u064a\u062f \u0627\u0644\u0646\u062c\u0648\u0645 \u063a\u064a\u0631 \u0643\u0627\u0641\u064d \u0644\u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628.",
       };
 
       setCustomerOrderTrackingError(
@@ -2136,7 +2466,11 @@ quantity: item.quantity,
       status: data.status || "assigned",
     };
 
-    setCustomerOrderTracking(nextOrder);
+    if (points > 0 && data?.points_remaining !== undefined) {
+    setCustomerPoints(Number(data.points_remaining));
+  }
+
+  setCustomerOrderTracking(nextOrder);
     setCustomerOrderTrackingId(
       data.order_id || ""
     );
@@ -2147,6 +2481,7 @@ quantity: item.quantity,
 
     setCustomerOrderSuccess(true);
     setCustomerOrderResult("success");
+    playSuccessSound();
 
     localStorage.setItem(
       "chapati_active_order",
@@ -3269,34 +3604,65 @@ quantity: item.quantity,
           ===================================================== */}
 
       <header className="site-header">
-        <span className="site-header__name">
-          {storeConfig.name}
-        </span>
+  <span className="site-header__name">
+    {storeConfig.name}
+  </span>
 
-        <div className="site-header__actions">
-          <button
-            type="button"
-            className="site-header__customer"
-            onClick={openAuthLogin}
-          >
-            {authUser
-              ? `👤 ${authUser.name}`
-              : "تسجيل الدخول"}
-          </button>
+  <div className="site-header__actions">
 
-          <button
-            type="button"
-            className="site-header__cta"
-            onClick={() =>
-              setIsCartOpen(true)
-            }
-          >
-            السلة{" "}
-            {totalItems > 0 &&
-              `(${totalItems})`}
-          </button>
-        </div>
-      </header>
+    <button
+      type="button"
+      className="site-header__customer"
+      onClick={openAuthLogin}
+    >
+      {authUser
+        ? "\u{1F464} " + (authUser.name || "\u0627\u0644\u0632\u0628\u0648\u0646")
+        : "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644"}
+    </button>
+
+    {authUser?.role === "customer" && (
+      <button
+        type="button"
+        className="site-header__icon-button site-header__points"
+        onClick={openAuthLogin}
+        title="\u0627\u0644\u0646\u062c\u0648\u0645"
+        aria-label={"\u0627\u0644\u0646\u062c\u0648\u0645 " + customerPoints}
+      >
+         <span>{"\u2B50"}</span>
+        <strong>{customerPoints}</strong>
+      </button>
+    )}
+
+    {authUser?.role === "customer" && (
+      <button
+        type="button"
+        className="site-header__icon-button site-header__notifications"
+        onClick={openAuthLogin}
+        title="\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062a"
+        aria-label={"\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062a " + customerNotifications.length}
+      >
+         <span>{"\u{1F514}"}</span>
+        {customerNotifications.length > 0 && (
+          <b>{customerNotifications.length}</b>
+        )}
+      </button>
+    )}
+
+    <button
+      type="button"
+      className="site-header__icon-button site-header__cart"
+      onClick={() => setIsCartOpen(true)}
+      title="\u0627\u0644\u0633\u0644\u0629"
+      aria-label={"\u0627\u0644\u0633\u0644\u0629 " + totalItems}
+    >
+       <span>{"\u{1F6D2}"}</span>
+      {totalItems > 0 && (
+        <b>{totalItems}</b>
+      )}
+    </button>
+
+  </div>
+</header>
 
       {/* =====================================================
           HERO
@@ -3584,7 +3950,7 @@ quantity: item.quantity,
                         event.target.value
                       )
                     }
-                    placeholder="0550000000 أو اسم السائق"
+                    placeholder="0550000000"
                     autoComplete="username"
                     autoFocus
                   />
@@ -3779,8 +4145,8 @@ quantity: item.quantity,
                   }
                 >
                   {customerRegisterLoading
-                    ? "جارٍ إنشاء الحساب..."
-                    : "إنشاء حساب"}
+                     ? "\u062c\u0627\u0631\u064d \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062d\u0633\u0627\u0628..."
+                     : "\u0625\u0646\u0634\u0627\u0621 \u062d\u0633\u0627\u0628"}
                 </button>
 
                 <button
@@ -3791,7 +4157,7 @@ quantity: item.quantity,
                     setAuthStep("choice");
                   }}
                 >
-                  العودة إلى تسجيل الدخول
+                   {"\u0627\u0644\u0639\u0648\u062f\u0629 \u0625\u0644\u0649 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644"}
                 </button>
               </form>
             )}
@@ -3801,13 +4167,13 @@ quantity: item.quantity,
               authUser?.role === "customer" && (
                 <div className="driver-login__form">
                   <div className="driver-login__info">
-                    مرحباً{" "}
+                     {"\u0645\u0631\u062d\u0628\u064b\u0627"}{" "}
                     <strong>
-                      {authUser.name || "الزبون"}
+                       {authUser.name || "\u0627\u0644\u0632\u0628\u0648\u0646"}
                     </strong>
                     <br />
-                    رقم الهاتف:{" "}
-                    {authUser.phone || "غير مسجل"}
+                     {"\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062a\u0641:"}{" "}
+                     {authUser.phone || "\u063a\u064a\u0631 \u0645\u0633\u062c\u0644"}
                   </div>
                   <div className="customer-points-card">
                     <div className="customer-points-card__top">
@@ -3926,37 +4292,6 @@ quantity: item.quantity,
           FLOATING CART
           ===================================================== */}
 
-      {cart.length > 0 && (
-        <button
-          type="button"
-          className="cart-floating"
-          onClick={() =>
-            setIsCartOpen(true)
-          }
-          aria-label="فتح سلة الطلب"
-        >
-          <span className="cart-floating__info">
-            <span className="cart-floating__badge">
-              {totalItems}
-            </span>
-
-            <span className="cart-floating__text">
-              <strong>
-                سلة الطلب
-              </strong>
-
-              <small>
-                اضغط لمراجعة طلبك
-              </small>
-            </span>
-          </span>
-
-          <span className="cart-floating__price">
-            {formatPrice(subtotal)}
-          </span>
-        </button>
-      )}
-
       {/* =====================================================
           PRODUCT OPTIONS
           ===================================================== */}
@@ -3977,7 +4312,7 @@ quantity: item.quantity,
             fontWeight: 900,
           }}
         >
-          {"\u0644\u0645 \u064A\u062A\u0645 \u062A\u0623\u0643\u064A\u062F \u0627\u0644\u0637\u0644\u0628 \u274C"}
+          { "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0623\u0643\u064A\u062F \u0627\u0644\u0637\u0644\u0628 \u274C" }
           {customerOrderTrackingError && (
             <div
               style={{
@@ -4007,7 +4342,7 @@ quantity: item.quantity,
             fontSize: "1.05rem",
           }}
         >
-          "\u062A\u0645 \u062A\u0623\u0643\u064A\u062F \u0637\u0644\u0628\u0643 \u0628\u0646\u062C\u0627\u062D \u2705"
+          { "تم تأكيد طلبك بنجاح ✅" }
         </div>
       )}      {authUser?.role === "customer" && customerOrderTracking && (
   <div
@@ -4053,6 +4388,21 @@ quantity: item.quantity,
               : "طلب جديد"}
     </div>
 
+    {customerOrderTracking.driver?.name && (
+      <div
+        style={{
+          marginBottom: "10px",
+          padding: "11px 13px",
+          borderRadius: "12px",
+          background: "#f6f8ff",
+          border: "1px solid #dce4ff",
+          fontSize: ".95rem",
+        }}
+      >
+        {"\ud83d\ude97 \u0627\u0644\u0633\u0627\u0626\u0642: "}
+        <strong>{customerOrderTracking.driver.name}</strong>
+      </div>
+    )}
     {Array.isArray(customerOrderTracking.items) &&
       customerOrderTracking.items.length > 0 && (
         <div
@@ -4127,6 +4477,7 @@ quantity: item.quantity,
         ? authUser
         : null
     }
+          customerPoints={customerPoints}
           onClose={() =>
             setIsCartOpen(false)
           }
@@ -4140,6 +4491,34 @@ quantity: item.quantity,
     </>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import './modern-theme.css';
 
 
 

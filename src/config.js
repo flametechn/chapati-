@@ -1,4 +1,4 @@
-﻿export const storeConfig = {
+export const storeConfig = {
   name: "Chapati and Melfouf",
   tagline: "أطيب الشباتي والملفوف في العلمة - اطلب الآن!",
   whatsappNumber: "213558447723",
@@ -22,7 +22,7 @@ export const themes = {
 export const menuGroups = [
   {
     id: "chapati-normal",
-    title: "الشباتي العادي",
+    title: "شبتي",
     items: [
       {
         id: "chapati-scalope",
@@ -60,13 +60,6 @@ export const menuGroups = [
         image: "/chapati-/images/04-chapati-simple-scalope.webp",
         customization: "normal",
       },
-    ],
-  },
-
-  {
-    id: "chapati-special",
-    title: "الشباتي السبيسيال",
-    items: [
       {
         id: "special-scalope",
         name: "شباتي سبيسيال سكالوب",
@@ -171,130 +164,106 @@ export const menuGroups = [
       {
         id: "coca-cola-large",
         name: "Coca-Cola",
-        desc: "كبير",
+        desc: "اختر الحجم",
         price: 130,
         theme: "crimson",
         image: "/chapati-/images/14-coca-cola.webp",
+        customization: "drink",
+        drinkSizes: [
+          { id: "large", name: "كبير", price: 130 },
+          { id: "mini", name: "Mini", price: 60 },
+        ],
       },
       {
         id: "pepsi-large",
         name: "Pepsi",
-        desc: "كبير",
+        desc: "اختر الحجم",
         price: 100,
         theme: "violet",
         image: "/chapati-/images/15-pepsi.jpg",
+        customization: "drink",
+        drinkSizes: [
+          { id: "large", name: "كبير", price: 100 },
+          { id: "mini", name: "Mini", price: 60 },
+        ],
       },
       {
         id: "mirinda-large",
         name: "Mirinda",
-        desc: "كبير",
+        desc: "اختر الحجم",
         price: 100,
         theme: "ember",
         image: "/chapati-/images/16-mirinda.webp",
+        customization: "drink",
+        drinkSizes: [
+          { id: "large", name: "كبير", price: 100 },
+          { id: "mini", name: "Mini", price: 60 },
+        ],
       },
       {
         id: "hamoud-large",
         name: "Hamoud",
-        desc: "كبير",
+        desc: "اختر الحجم",
         price: 100,
         theme: "olive",
         image: "/chapati-/images/17-hamoud.webp",
+        customization: "drink",
+        drinkSizes: [
+          { id: "large", name: "كبير", price: 100 },
+          { id: "mini", name: "Mini", price: 60 },
+        ],
       },
       {
         id: "schweppes-large",
         name: "Schweppes",
-        desc: "كبير",
+        desc: "اختر الحجم",
         price: 150,
         theme: "charcoal",
         image: "/chapati-/images/18-schweppes.webp",
+        customization: "drink",
+        drinkSizes: [
+          { id: "large", name: "كبير", price: 150 },
+          { id: "mini", name: "Mini", price: 70 },
+        ],
       },
       {
         id: "ifri-large",
         name: "Ifri Juice",
-        desc: "كبير",
+        desc: "اختر الحجم",
         price: 150,
         theme: "olive",
         image: "/chapati-/images/19-ifri.webp",
+        customization: "drink",
+        drinkSizes: [
+          { id: "large", name: "كبير", price: 150 },
+          { id: "mini", name: "Mini", price: 60 },
+        ],
       },
       {
         id: "bona-large",
         name: "Bona",
-        desc: "كبير",
+        desc: "اختر الحجم",
         price: 100,
         theme: "ember",
         image: "/chapati-/images/20-bona.webp",
+        customization: "drink",
+        drinkSizes: [
+          { id: "large", name: "كبير", price: 100 },
+          { id: "mini", name: "Mini", price: 50 },
+        ],
       },
       {
         id: "water-large",
         name: "ماء",
-        desc: "كبير",
+        desc: "اختر الحجم",
         price: 50,
         theme: "violet",
         image: "/chapati-/images/21-water.webp",
-      },
-      {
-        id: "coca-cola-mini",
-        name: "Coca-Cola",
-        desc: "Mini",
-        price: 60,
-        theme: "crimson",
-        image: "/chapati-/images/14-coca-cola.webp",
-      },
-      {
-        id: "pepsi-mini",
-        name: "Pepsi",
-        desc: "Mini",
-        price: 60,
-        theme: "violet",
-        image: "/chapati-/images/15-pepsi.jpg",
-      },
-      {
-        id: "mirinda-mini",
-        name: "Mirinda",
-        desc: "Mini",
-        price: 60,
-        theme: "ember",
-        image: "/chapati-/images/16-mirinda.webp",
-      },
-      {
-        id: "hamoud-mini",
-        name: "Hamoud",
-        desc: "Mini",
-        price: 60,
-        theme: "olive",
-        image: "/chapati-/images/17-hamoud.webp",
-      },
-      {
-        id: "schweppes-mini",
-        name: "Schweppes",
-        desc: "Mini",
-        price: 70,
-        theme: "charcoal",
-        image: "/chapati-/images/18-schweppes.webp",
-      },
-      {
-        id: "ifri-mini",
-        name: "Ifri Juice",
-        desc: "Mini",
-        price: 60,
-        theme: "olive",
-        image: "/chapati-/images/19-ifri.webp",
-      },
-      {
-        id: "bona-mini",
-        name: "Bona",
-        desc: "Mini",
-        price: 50,
-        theme: "ember",
-        image: "/chapati-/images/20-bona.webp",
-      },
-      {
-        id: "water-mini",
-        name: "ماء",
-        desc: "Mini",
-        price: 30,
-        theme: "violet",
-        image: "/chapati-/images/21-water.webp",
+        customization: "drink",
+        drinkSizes: [
+          { id: "large", name: "كبير", price: 50 },
+          { id: "mini", name: "Mini", price: 30 },
+        ],
       },
     ],
   },
@@ -312,3 +281,5 @@ export const deliveryZones = [
   "بئر العرش",
   "الزرقة",
 ];
+
+
