@@ -82,6 +82,7 @@ export default function OwnerDashboard({
 
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [driverSelections, setDriverSelections] = useState({});
+  const [driverDeleting, setDriverDeleting] = useState(null);
 
   const [promoData, setPromoData] = useState({
     promo: null,
@@ -659,6 +660,46 @@ export default function OwnerDashboard({
       setError(requestError?.message || "تعذر إنشاء السائق.");
     } finally {
       setDriverCreating(false);
+    }
+  }
+
+  async function deleteDriver(driver) {
+    const confirmed = window.confirm(
+      `\u0647\u0644 \u0623\u0646\u062a \u0645\u062a\u0623\u0643\u062f \u0645\u0646 \u062d\u0630\u0641 \u0627\u0644\u0633\u0627\u0626\u0642 "${driver.name}"\u061f`
+    );
+    if (!confirmed) return;
+
+    setDriverDeleting(driver.id);
+
+    try {
+      const { data, error: rpcError } = await supabase.rpc(
+        "delete_driver",
+        {
+          p_owner_session_token: sessionToken,
+          p_driver_id: driver.id,
+        }
+      );
+
+      if (rpcError) {
+        setError(
+          rpcError.message ||
+            "\u062a\u0639\u0630\u0631 \u062d\u0630\u0641 \u0627\u0644\u0633\u0627\u0626\u0642."
+        );
+        return;
+      }
+
+      if (!data?.success) {
+        setError(
+          data?.message ||
+            data?.error ||
+            "\u062a\u0639\u0630\u0631 \u062d\u0630\u0641 \u0627\u0644\u0633\u0627\u0626\u0642."
+        );
+        return;
+      }
+
+      await loadDashboard(sessionToken);
+    } finally {
+      setDriverDeleting(null);
     }
   }
 
@@ -1499,6 +1540,8 @@ export default function OwnerDashboard({
                       ? "متصل"
                       : "غير متصل"}
                   </span>
+
+                  <button type="button" className="owner-driver__delete" onClick={() => deleteDriver(driver)} disabled={driverDeleting === driver.id}>{driverDeleting === driver.id ? "\u062c\u0627\u0631\u064a \u0627\u0644\u062d\u0630\u0641..." : "\u062d\u0630\u0641"}</button>
                 </article>
               ))
             )}

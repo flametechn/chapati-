@@ -2040,3 +2040,25 @@
     flex-basis: 50px;
   }
 }
+
+.owner-driver__delete {
+  border: 1px solid rgba(220, 38, 38, 0.28);
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.owner-driver__delete:hover:not(:disabled) {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+.owner-driver__delete:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
