@@ -1226,7 +1226,7 @@ function CartModal({
               customerLongitude,
               promoCode: discountMethod === "promo" ? normalizedPromoCode || null : null,
               points: discountMethod === "stars" ? normalizedStars : 0,
-              sessionToken: authUser?.sessionToken || null,
+              sessionToken: customer?.sessionToken || null,
             });
           }}
         >
