@@ -2062,3 +2062,62 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* =========================================================
+   OWNER DASHBOARD — MOBILE WIDTH SAFETY FIX
+   ========================================================= */
+
+@media (max-width: 767px) {
+  .owner-page,
+  .owner-page *,
+  .owner-page *::before,
+  .owner-page *::after {
+    box-sizing: border-box;
+  }
+
+  .owner-page {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .owner-shell,
+  .owner-dashboard-layout,
+  .owner-dashboard-content,
+  .owner-dashboard-tabs,
+  .owner-section,
+  .owner-order,
+  .owner-driver,
+  .owner-stat,
+  .owner-broadcast,
+  .owner-promo-section,
+  .owner-products-section {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .owner-header,
+  .owner-header__actions,
+  .owner-order__top,
+  .owner-order__meta,
+  .owner-driver {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .owner-header > *,
+  .owner-header__actions > *,
+  .owner-order__top > *,
+  .owner-order__meta > *,
+  .owner-driver > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .owner-page img,
+  .owner-page video,
+  .owner-page iframe {
+    max-width: 100%;
+  }
+}
